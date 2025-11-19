@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Truck, Users, Activity, Plus, Trash, Edit, Save, Menu } from 'lucide-react'
+import { Truck, Users, Activity, Plus, Trash, Edit, Save, X, ChevronRight, ChevronLeft, Menu } from 'lucide-react'
 
 // Types
 type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
@@ -54,6 +54,7 @@ interface Driver {
 // Initial data
 const loadingDoors = ['13A', '13B', '14A', '14B', '15A', '15B']
 const stagingDoors = Array.from({ length: 11 }, (_, i) => (18 + i).toString())
+const receivingDoors = ['8', '9', '10', '11']
 const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledonia', '5-Chippewa Falls']
 const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Semi Trailer', 'Semi']
 const doorStatuses: DoorStatus[] = ['Loading', 'EOT', 'EOT+1', 'Change Truck/Trailer', 'Waiting', 'Done For Night']
@@ -64,28 +65,28 @@ const truckStatuses: TruckStatus[] = [
 ]
 
 const routeColors: Record<Route, string> = {
-  '1-Fond Du Lac': 'bg-blue-500',
-  '2-Green Bay': 'bg-green-500',
-  '3-Wausau': 'bg-purple-500',
-  '4-Caledonia': 'bg-orange-500',
-  '5-Chippewa Falls': 'bg-red-500'
+  '1-Fond Du Lac': 'bg-blue-600 hover:bg-blue-700',
+  '2-Green Bay': 'bg-green-600 hover:bg-green-700',
+  '3-Wausau': 'bg-purple-600 hover:bg-purple-700',
+  '4-Caledonia': 'bg-orange-600 hover:bg-orange-700',
+  '5-Chippewa Falls': 'bg-red-600 hover:bg-red-700'
 }
 
 const statusColors: Record<TruckStatus, string> = {
-  'On Route': 'bg-blue-600',
-  'In Door': 'bg-green-600',
-  'Put Away': 'bg-gray-600',
-  'In Front': 'bg-yellow-600',
-  'Ready': 'bg-cyan-600',
-  'In Back': 'bg-indigo-600',
-  'The Rock': 'bg-stone-600',
-  'Yard': 'bg-lime-600',
-  'Missing': 'bg-red-600',
-  'Doors 8-11': 'bg-pink-600',
-  'Doors 12A-15B': 'bg-teal-600',
-  'End': 'bg-violet-600',
-  'Gap': 'bg-amber-600',
-  'Transfer': 'bg-fuchsia-600'
+  'On Route': 'bg-blue-700 hover:bg-blue-800',
+  'In Door': 'bg-green-700 hover:bg-green-800',
+  'Put Away': 'bg-gray-700 hover:bg-gray-800',
+  'In Front': 'bg-yellow-700 hover:bg-yellow-800',
+  'Ready': 'bg-cyan-700 hover:bg-cyan-800',
+  'In Back': 'bg-indigo-700 hover:bg-indigo-800',
+  'The Rock': 'bg-stone-700 hover:bg-stone-800',
+  'Yard': 'bg-lime-700 hover:bg-lime-800',
+  'Missing': 'bg-red-700 hover:bg-red-800',
+  'Doors 8-11': 'bg-pink-700 hover:bg-pink-800',
+  'Doors 12A-15B': 'bg-teal-700 hover:bg-teal-800',
+  'End': 'bg-violet-700 hover:bg-violet-800',
+  'Gap': 'bg-amber-700 hover:bg-amber-800',
+  'Transfer': 'bg-fuchsia-700 hover:bg-fuchsia-800'
 }
 
 export default function TruckManagementSystem() {
@@ -207,27 +208,27 @@ export default function TruckManagementSystem() {
     return (
       <div className="space-y-6">
         {/* Summary Statistics */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Shift Summary</CardTitle>
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="bg-gray-50 border-b border-gray-200">
+            <CardTitle className="text-gray-900">Shift Summary</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {routes.map(route => (
                 <div key={route} className="text-center">
-                  <div className={`${routeColors[route]} text-white rounded-lg p-3 mb-2`}>
+                  <div className={`${routeColors[route]} text-white rounded-lg p-3 mb-2 shadow-md`}>
                     <div className="text-2xl font-bold">{routeStats[route]}</div>
                   </div>
-                  <div className="text-sm font-medium">{route}</div>
+                  <div className="text-sm font-medium text-gray-700">{route}</div>
                 </div>
               ))}
             </div>
             <div className="grid grid-cols-2 gap-4 mt-4">
-              <div className="bg-blue-100 rounded-lg p-4 text-center">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-blue-700">{totalPods}</div>
                 <div className="text-sm font-medium text-blue-600">Total Pods</div>
               </div>
-              <div className="bg-green-100 rounded-lg p-4 text-center">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-green-700">{totalPallets}</div>
                 <div className="text-sm font-medium text-green-600">Total Pallets</div>
               </div>
@@ -236,22 +237,22 @@ export default function TruckManagementSystem() {
         </Card>
 
         {/* Loading Door Grid */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Loading Doors (13A - 15B)</CardTitle>
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="bg-gray-50 border-b border-gray-200">
+            <CardTitle className="text-gray-900">Loading Doors (13A - 15B)</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {loadingDoors.map(door => {
                 const doorTrucks = trucks.filter(t => t.door === door)
                 return (
-                  <div key={door} className="border-2 border-gray-300 rounded-lg p-4">
-                    <div className="text-center font-bold mb-2 text-lg">Door {door}</div>
+                  <div key={door} className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                    <div className="text-center font-bold mb-2 text-lg text-gray-900">Door {door}</div>
                     {doorTrucks.length === 0 ? (
                       <Button 
                         onClick={() => addTruck(door)}
                         variant="outline"
-                        className="w-full"
+                        className="w-full border-gray-300 text-gray-700 hover:bg-gray-100"
                       >
                         <Plus className="w-4 h-4 mr-2" />
                         Add Truck
@@ -259,7 +260,7 @@ export default function TruckManagementSystem() {
                     ) : (
                       <div className="space-y-2">
                         {doorTrucks.map(truck => (
-                          <div key={truck.id} className={`${routeColors[truck.route]} text-white rounded p-2 text-center font-bold`}>
+                          <div key={truck.id} className={`${routeColors[truck.route]} text-white rounded p-2 text-center font-bold shadow-sm`}>
                             {truck.truckNumber || 'New'}
                           </div>
                         ))}
@@ -274,38 +275,39 @@ export default function TruckManagementSystem() {
 
         {/* Batch Management */}
         {[1, 2, 3, 4].map(batch => (
-          <Card key={batch}>
-            <CardHeader>
+          <Card key={batch} className="bg-white border-gray-200">
+            <CardHeader className="bg-gray-50 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <CardTitle>Batch {batch}</CardTitle>
-                <Button onClick={() => addTruck(loadingDoors[0], batch)} size="sm">
+                <CardTitle className="text-gray-900">Batch {batch}</CardTitle>
+                <Button onClick={() => addTruck(loadingDoors[0], batch)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Truck
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <div className="space-y-4">
                 {getTrucksByBatch(batch).map(truck => (
-                  <div key={truck.id} className="border rounded-lg p-4">
+                  <div key={truck.id} className="border border-gray-200 rounded-lg p-4 bg-white">
                     {editingTruck === truck.id ? (
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
-                            <Label>Truck Number</Label>
+                            <Label className="text-gray-700">Truck Number</Label>
                             <Input
                               value={truck.truckNumber}
                               onChange={(e) => updateTruck(truck.id, { truckNumber: e.target.value })}
                               placeholder="Enter truck #"
+                              className="border-gray-300 text-gray-900"
                             />
                           </div>
                           <div>
-                            <Label>Door</Label>
+                            <Label className="text-gray-700">Door</Label>
                             <Select
                               value={truck.door}
                               onValueChange={(value) => updateTruck(truck.id, { door: value })}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className="border-gray-300 text-gray-900">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -316,12 +318,12 @@ export default function TruckManagementSystem() {
                             </Select>
                           </div>
                           <div>
-                            <Label>Route</Label>
+                            <Label className="text-gray-700">Route</Label>
                             <Select
                               value={truck.route}
                               onValueChange={(value: Route) => updateTruck(truck.id, { route: value })}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className="border-gray-300 text-gray-900">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -332,12 +334,12 @@ export default function TruckManagementSystem() {
                             </Select>
                           </div>
                           <div>
-                            <Label>Truck Type</Label>
+                            <Label className="text-gray-700">Truck Type</Label>
                             <Select
                               value={truck.truckType}
                               onValueChange={(value: TruckType) => updateTruck(truck.id, { truckType: value })}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className="border-gray-300 text-gray-900">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -350,12 +352,13 @@ export default function TruckManagementSystem() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label>Pods</Label>
+                            <Label className="text-gray-700">Pods</Label>
                             <div className="flex gap-2">
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pods: Math.max(0, truck.pods - 1) })}
+                                className="border-gray-300 text-gray-700"
                               >
                                 -
                               </Button>
@@ -363,24 +366,26 @@ export default function TruckManagementSystem() {
                                 type="number"
                                 value={truck.pods}
                                 onChange={(e) => updateTruck(truck.id, { pods: parseInt(e.target.value) || 0 })}
-                                className="text-center"
+                                className="text-center border-gray-300 text-gray-900"
                               />
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pods: truck.pods + 1 })}
+                                className="border-gray-300 text-gray-700"
                               >
                                 +
                               </Button>
                             </div>
                           </div>
                           <div>
-                            <Label>Pallets/Trays</Label>
+                            <Label className="text-gray-700">Pallets/Trays</Label>
                             <div className="flex gap-2">
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pallets: Math.max(0, truck.pallets - 1) })}
+                                className="border-gray-300 text-gray-700"
                               >
                                 -
                               </Button>
@@ -388,12 +393,13 @@ export default function TruckManagementSystem() {
                                 type="number"
                                 value={truck.pallets}
                                 onChange={(e) => updateTruck(truck.id, { pallets: parseInt(e.target.value) || 0 })}
-                                className="text-center"
+                                className="text-center border-gray-300 text-gray-900"
                               />
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pallets: truck.pallets + 1 })}
+                                className="border-gray-300 text-gray-700"
                               >
                                 +
                               </Button>
@@ -401,16 +407,17 @@ export default function TruckManagementSystem() {
                           </div>
                         </div>
                         <div>
-                          <Label>Notes</Label>
+                          <Label className="text-gray-700">Notes</Label>
                           <Textarea
                             value={truck.notes}
                             onChange={(e) => updateTruck(truck.id, { notes: e.target.value })}
                             placeholder="Tray types, pallet specs, special instructions..."
                             rows={3}
+                            className="border-gray-300 text-gray-900"
                           />
                         </div>
                         <div className="flex gap-2">
-                          <Button onClick={() => setEditingTruck(null)} size="sm">
+                          <Button onClick={() => setEditingTruck(null)} size="sm" className="bg-green-600 hover:bg-green-700 text-white">
                             <Save className="w-4 h-4 mr-2" />
                             Save
                           </Button>
@@ -423,21 +430,21 @@ export default function TruckManagementSystem() {
                     ) : (
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-4 flex-wrap">
-                            <div className={`${routeColors[truck.route]} text-white rounded px-3 py-1 font-bold`}>
+                          <div className="flex items-center gap-4">
+                            <div className={`${routeColors[truck.route]} text-white rounded px-3 py-1 font-bold shadow-sm`}>
                               {truck.truckNumber || 'New'}
                             </div>
-                            <div className="text-sm text-gray-600">Door {truck.door}</div>
-                            <div className="text-sm text-gray-600">{truck.route}</div>
-                            <div className="text-sm text-gray-600">{truck.truckType}</div>
-                            <div className="text-sm text-gray-600">Pods: {truck.pods}</div>
-                            <div className="text-sm text-gray-600">Pallets: {truck.pallets}</div>
+                            <div className="text-sm text-gray-700">Door {truck.door}</div>
+                            <div className="text-sm text-gray-700">{truck.route}</div>
+                            <div className="text-sm text-gray-700">{truck.truckType}</div>
+                            <div className="text-sm text-gray-700">Pods: {truck.pods}</div>
+                            <div className="text-sm text-gray-700">Pallets: {truck.pallets}</div>
                           </div>
                           {truck.notes && (
-                            <div className="text-sm text-gray-500 mt-2">{truck.notes}</div>
+                            <div className="text-sm text-gray-600 mt-2">{truck.notes}</div>
                           )}
                         </div>
-                        <Button onClick={() => setEditingTruck(truck.id)} variant="outline" size="sm">
+                        <Button onClick={() => setEditingTruck(truck.id)} variant="outline" size="sm" className="border-gray-300 text-gray-700">
                           <Edit className="w-4 h-4" />
                         </Button>
                       </div>
@@ -457,76 +464,81 @@ export default function TruckManagementSystem() {
     return (
       <div className="space-y-6">
         {/* Driver Management */}
-        <Card>
-          <CardHeader>
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="bg-gray-50 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <CardTitle>Driver & Equipment Database</CardTitle>
-              <Button onClick={() => setNewDriverForm(true)} size="sm">
+              <CardTitle className="text-gray-900">Driver & Equipment Database</CardTitle>
+              <Button onClick={() => setNewDriverForm(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Driver
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {newDriverForm && (
               <div className="mb-4">
-                <Button onClick={addDriver} className="w-full">
+                <Button onClick={addDriver} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
                   Create New Driver Profile
                 </Button>
               </div>
             )}
             <div className="space-y-4">
               {drivers.map(driver => (
-                <div key={driver.id} className="border rounded-lg p-4">
+                <div key={driver.id} className="border border-gray-200 rounded-lg p-4 bg-white">
                   {editingDriver === driver.id ? (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label>Full Name</Label>
+                          <Label className="text-gray-700">Full Name</Label>
                           <Input
                             value={driver.name}
                             onChange={(e) => updateDriver(driver.id, { name: e.target.value })}
                             placeholder="Driver name"
+                            className="border-gray-300 text-gray-900"
                           />
                         </div>
                         <div>
-                          <Label>Phone Number</Label>
+                          <Label className="text-gray-700">Phone Number</Label>
                           <Input
                             value={driver.phone}
                             onChange={(e) => updateDriver(driver.id, { phone: e.target.value })}
                             placeholder="(555) 555-5555"
+                            className="border-gray-300 text-gray-900"
                           />
                         </div>
                       </div>
                       <div>
-                        <Label>Tractor Number</Label>
+                        <Label className="text-gray-700">Tractor Number</Label>
                         <Input
                           value={driver.tractorNumber}
                           onChange={(e) => updateDriver(driver.id, { tractorNumber: e.target.value })}
                           placeholder="Tractor #"
+                          className="border-gray-300 text-gray-900"
                         />
                       </div>
                       <div>
-                        <Label>Trailer Numbers (comma separated)</Label>
+                        <Label className="text-gray-700">Trailer Numbers (comma separated)</Label>
                         <Input
                           value={driver.trailerNumbers.join(', ')}
                           onChange={(e) => updateDriver(driver.id, { 
                             trailerNumbers: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
                           })}
                           placeholder="Trailer1, Trailer2, Trailer3..."
+                          className="border-gray-300 text-gray-900"
                         />
                       </div>
                       <div>
-                        <Label>Notes</Label>
+                        <Label className="text-gray-700">Notes</Label>
                         <Textarea
                           value={driver.notes}
                           onChange={(e) => updateDriver(driver.id, { notes: e.target.value })}
                           placeholder="Availability, time off, special circumstances..."
                           rows={2}
+                          className="border-gray-300 text-gray-900"
                         />
                       </div>
                       <div className="flex gap-2">
-                        <Button onClick={() => setEditingDriver(null)} size="sm">
+                        <Button onClick={() => setEditingDriver(null)} size="sm" className="bg-green-600 hover:bg-green-700 text-white">
                           <Save className="w-4 h-4 mr-2" />
                           Save
                         </Button>
@@ -534,6 +546,7 @@ export default function TruckManagementSystem() {
                           onClick={() => updateDriver(driver.id, { active: !driver.active })}
                           variant={driver.active ? "outline" : "default"}
                           size="sm"
+                          className={driver.active ? "border-gray-300 text-gray-700" : "bg-blue-600 hover:bg-blue-700 text-white"}
                         >
                           {driver.active ? 'Set Inactive' : 'Set Active'}
                         </Button>
@@ -546,21 +559,21 @@ export default function TruckManagementSystem() {
                   ) : (
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-4 flex-wrap">
-                          <div className={`${driver.active ? 'bg-green-500' : 'bg-gray-400'} text-white rounded px-3 py-1 font-bold`}>
+                        <div className="flex items-center gap-4">
+                          <div className={`${driver.active ? 'bg-green-600' : 'bg-gray-500'} text-white rounded px-3 py-1 font-bold shadow-sm`}>
                             {driver.name || 'New Driver'}
                           </div>
-                          <div className="text-sm text-gray-600">{driver.phone}</div>
-                          <div className="text-sm text-gray-600">Tractor: {driver.tractorNumber}</div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-gray-700">{driver.phone}</div>
+                          <div className="text-sm text-gray-700">Tractor: {driver.tractorNumber}</div>
+                          <div className="text-sm text-gray-700">
                             Trailers: {driver.trailerNumbers.length > 0 ? driver.trailerNumbers.join(', ') : 'None'}
                           </div>
                         </div>
                         {driver.notes && (
-                          <div className="text-sm text-gray-500 mt-2">{driver.notes}</div>
+                          <div className="text-sm text-gray-600 mt-2">{driver.notes}</div>
                         )}
                       </div>
-                      <Button onClick={() => setEditingDriver(driver.id)} variant="outline" size="sm">
+                      <Button onClick={() => setEditingDriver(driver.id)} variant="outline" size="sm" className="border-gray-300 text-gray-700">
                         <Edit className="w-4 h-4" />
                       </Button>
                     </div>
@@ -572,11 +585,11 @@ export default function TruckManagementSystem() {
         </Card>
 
         {/* Staging Doors */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Staging Doors (18-28) - Position Management</CardTitle>
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="bg-gray-50 border-b border-gray-200">
+            <CardTitle className="text-gray-900">Staging Doors (18-28) - Position Management</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {stagingDoors.map(door => {
                 const doorTrucks = trucks
@@ -584,20 +597,20 @@ export default function TruckManagementSystem() {
                   .sort((a, b) => (a.stagingPosition || 0) - (b.stagingPosition || 0))
                 
                 return (
-                  <div key={door} className="border-2 border-gray-300 rounded-lg p-4">
-                    <div className="text-center font-bold mb-3 text-lg">Door {door}</div>
+                  <div key={door} className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                    <div className="text-center font-bold mb-3 text-lg text-gray-900">Door {door}</div>
                     <div className="space-y-2">
                       {[1, 2, 3, 4].map(position => {
                         const truck = doorTrucks.find(t => t.stagingPosition === position)
                         return (
-                          <div key={position} className="border rounded p-2">
-                            <div className="text-xs text-gray-500 mb-1">Position {position} {position === 1 ? '(Front)' : position === 4 ? '(Back)' : ''}</div>
+                          <div key={position} className="border border-gray-300 rounded p-2 bg-white">
+                            <div className="text-xs text-gray-600 mb-1">Position {position} {position === 1 ? '(Front)' : position === 4 ? '(Back)' : ''}</div>
                             {truck ? (
-                              <div className={`${routeColors[truck.route]} text-white rounded p-2 text-center text-sm font-bold`}>
+                              <div className={`${routeColors[truck.route]} text-white rounded p-2 text-center text-sm font-bold shadow-sm`}>
                                 {truck.truckNumber} - {truck.truckType}
                               </div>
                             ) : (
-                              <div className="bg-gray-100 rounded p-2 text-center text-sm text-gray-400">
+                              <div className="bg-gray-100 border border-gray-200 rounded p-2 text-center text-sm text-gray-500">
                                 Empty
                               </div>
                             )}
@@ -628,7 +641,7 @@ export default function TruckManagementSystem() {
                       }}
                       variant="outline"
                       size="sm"
-                      className="w-full mt-2"
+                      className="w-full mt-2 border-gray-300 text-gray-700 hover:bg-gray-100"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Truck
@@ -641,27 +654,27 @@ export default function TruckManagementSystem() {
         </Card>
 
         {/* PreShift Status Board */}
-        <Card>
-          <CardHeader>
-            <CardTitle>PreShift Status Summary</CardTitle>
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="bg-gray-50 border-b border-gray-200">
+            <CardTitle className="text-gray-900">PreShift Status Summary</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-blue-100 rounded-lg p-4 text-center">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-blue-700">{trucks.length}</div>
                 <div className="text-sm font-medium text-blue-600">Total Trucks</div>
               </div>
-              <div className="bg-green-100 rounded-lg p-4 text-center">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-green-700">
                   {trucks.filter(t => t.stagingDoor).length}
                 </div>
                 <div className="text-sm font-medium text-green-600">Staged Trucks</div>
               </div>
-              <div className="bg-purple-100 rounded-lg p-4 text-center">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-purple-700">{drivers.filter(d => d.active).length}</div>
                 <div className="text-sm font-medium text-purple-600">Active Drivers</div>
               </div>
-              <div className="bg-orange-100 rounded-lg p-4 text-center">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-orange-700">
                   {drivers.reduce((sum, d) => sum + d.trailerNumbers.length, 0)}
                 </div>
@@ -679,24 +692,25 @@ export default function TruckManagementSystem() {
     return (
       <div className="space-y-6">
         {/* Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Filters & Search</CardTitle>
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="bg-gray-50 border-b border-gray-200">
+            <CardTitle className="text-gray-900">Filters & Search</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label>Search Truck Number</Label>
+                <Label className="text-gray-700">Search Truck Number</Label>
                 <Input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search..."
+                  className="border-gray-300 text-gray-900"
                 />
               </div>
               <div>
-                <Label>Filter by Route</Label>
+                <Label className="text-gray-700">Filter by Route</Label>
                 <Select value={filterRoute} onValueChange={(value: Route | 'all') => setFilterRoute(value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-gray-300 text-gray-900">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -708,9 +722,9 @@ export default function TruckManagementSystem() {
                 </Select>
               </div>
               <div>
-                <Label>Filter by Status</Label>
+                <Label className="text-gray-700">Filter by Status</Label>
                 <Select value={filterStatus} onValueChange={(value: TruckStatus | 'all') => setFilterStatus(value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-gray-300 text-gray-900">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -726,153 +740,146 @@ export default function TruckManagementSystem() {
         </Card>
 
         {/* Movement Dashboard */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Live Truck Movement Dashboard</CardTitle>
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="bg-gray-50 border-b border-gray-200">
+            <CardTitle className="text-gray-900">Live Truck Movement Dashboard</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="space-y-4">
-              {filteredTrucks.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No trucks to display. Add trucks in the Print Room or PreShift tabs.
-                </div>
-              ) : (
-                filteredTrucks.map(truck => (
-                  <div key={truck.id} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                      <div className="flex items-center gap-4 flex-wrap">
-                        <div className={`${routeColors[truck.route]} text-white rounded px-4 py-2 font-bold text-lg`}>
-                          {truck.truckNumber || 'New'}
-                        </div>
-                        <div className={`${statusColors[truck.status]} text-white rounded px-3 py-1 text-sm font-medium`}>
-                          {truck.status}
-                        </div>
-                        <div className="text-sm text-gray-600">Door {truck.door}</div>
-                        <div className="text-sm text-gray-600">{truck.route}</div>
-                        <div className="text-sm text-gray-600">{truck.truckType}</div>
+              {filteredTrucks.map(truck => (
+                <div key={truck.id} className="border border-gray-200 rounded-lg p-4 bg-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className={`${routeColors[truck.route]} text-white rounded px-4 py-2 font-bold text-lg shadow-md`}>
+                        {truck.truckNumber || 'New'}
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => updateTruck(truck.id, { ignored: !truck.ignored })}
-                          variant={truck.ignored ? "default" : "outline"}
-                          size="sm"
-                        >
-                          {truck.ignored ? 'Unignore' : 'Ignore'}
-                        </Button>
+                      <div className={`${statusColors[truck.status]} text-white rounded px-3 py-1 text-sm font-medium shadow-sm`}>
+                        {truck.status}
                       </div>
+                      <div className="text-sm text-gray-700">Door {truck.door}</div>
+                      <div className="text-sm text-gray-700">{truck.route}</div>
+                      <div className="text-sm text-gray-700">{truck.truckType}</div>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Truck Status</Label>
-                        <Select
-                          value={truck.status}
-                          onValueChange={(value: TruckStatus) => updateTruck(truck.id, { status: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {truckStatuses.map(status => (
-                              <SelectItem key={status} value={status}>{status}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div>
-                        <Label>Door Status</Label>
-                        <Select
-                          value={truck.doorStatus || 'Loading'}
-                          onValueChange={(value: DoorStatus) => updateTruck(truck.id, { doorStatus: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {doorStatuses.map(status => (
-                              <SelectItem key={status} value={status}>{status}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                      <div className="text-center p-2 bg-blue-50 rounded">
-                        <div className="text-sm text-gray-600">Pods</div>
-                        <div className="text-xl font-bold text-blue-700">{truck.pods}</div>
-                      </div>
-                      <div className="text-center p-2 bg-green-50 rounded">
-                        <div className="text-sm text-gray-600">Pallets</div>
-                        <div className="text-xl font-bold text-green-700">{truck.pallets}</div>
-                      </div>
-                      <div className="text-center p-2 bg-purple-50 rounded">
-                        <div className="text-sm text-gray-600">Batch</div>
-                        <div className="text-xl font-bold text-purple-700">{truck.batch}</div>
-                      </div>
-                    </div>
-
-                    {truck.notes && (
-                      <div className="mt-4 p-3 bg-gray-50 rounded">
-                        <div className="text-sm font-medium text-gray-700 mb-1">Notes:</div>
-                        <div className="text-sm text-gray-600">{truck.notes}</div>
-                      </div>
-                    )}
-
-                    <div className="mt-4 text-xs text-gray-400">
-                      Last updated: {new Date(truck.lastUpdated).toLocaleTimeString()}
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => updateTruck(truck.id, { ignored: !truck.ignored })}
+                        variant={truck.ignored ? "default" : "outline"}
+                        size="sm"
+                        className={truck.ignored ? "bg-gray-600 hover:bg-gray-700 text-white" : "border-gray-300 text-gray-700"}
+                      >
+                        {truck.ignored ? 'Unignore' : 'Ignore'}
+                      </Button>
                     </div>
                   </div>
-                ))
-              )}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-gray-700">Truck Status</Label>
+                      <Select
+                        value={truck.status}
+                        onValueChange={(value: TruckStatus) => updateTruck(truck.id, { status: value })}
+                      >
+                        <SelectTrigger className="border-gray-300 text-gray-900">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {truckStatuses.map(status => (
+                            <SelectItem key={status} value={status}>{status}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Door Status</Label>
+                      <Select
+                        value={truck.doorStatus || 'Loading'}
+                        onValueChange={(value: DoorStatus) => updateTruck(truck.id, { doorStatus: value })}
+                      >
+                        <SelectTrigger className="border-gray-300 text-gray-900">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {doorStatuses.map(status => (
+                            <SelectItem key={status} value={status}>{status}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    <div className="text-center p-2 bg-blue-50 border border-blue-200 rounded">
+                      <div className="text-sm text-gray-700">Pods</div>
+                      <div className="text-xl font-bold text-blue-700">{truck.pods}</div>
+                    </div>
+                    <div className="text-center p-2 bg-green-50 border border-green-200 rounded">
+                      <div className="text-sm text-gray-700">Pallets</div>
+                      <div className="text-xl font-bold text-green-700">{truck.pallets}</div>
+                    </div>
+                    <div className="text-center p-2 bg-purple-50 border border-purple-200 rounded">
+                      <div className="text-sm text-gray-700">Batch</div>
+                      <div className="text-xl font-bold text-purple-700">{truck.batch}</div>
+                    </div>
+                  </div>
+
+                  {truck.notes && (
+                    <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded">
+                      <div className="text-sm font-medium text-gray-700 mb-1">Notes:</div>
+                      <div className="text-sm text-gray-600">{truck.notes}</div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 text-xs text-gray-500">
+                    Last updated: {new Date(truck.lastUpdated).toLocaleTimeString()}
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
 
         {/* Quick Actions */}
-        {filteredTrucks.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Status Updates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {truckStatuses.slice(0, 8).map(status => (
-                  <Button
-                    key={status}
-                    onClick={() => {
-                      const selectedTrucks = filteredTrucks.filter(t => !t.ignored)
-                      if (selectedTrucks.length > 0 && window.confirm(`Update ${selectedTrucks.length} trucks to ${status}?`)) {
-                        selectedTrucks.forEach(truck => updateTruck(truck.id, { status }))
-                      }
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className={`${statusColors[status]} text-white hover:opacity-80`}
-                  >
-                    {status}
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="bg-gray-50 border-b border-gray-200">
+            <CardTitle className="text-gray-900">Quick Status Updates</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {truckStatuses.slice(0, 8).map(status => (
+                <Button
+                  key={status}
+                  onClick={() => {
+                    const selectedTrucks = filteredTrucks.filter(t => !t.ignored)
+                    if (selectedTrucks.length > 0 && window.confirm(`Update ${selectedTrucks.length} trucks to ${status}?`)) {
+                      selectedTrucks.forEach(truck => updateTruck(truck.id, { status }))
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className={`${statusColors[status]} text-white border-0 shadow-sm`}
+                >
+                  {status}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100">
       {/* Header */}
-      <div className="bg-white border-b shadow-sm sticky top-0 z-50">
+      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Truck className="w-8 h-8 text-blue-600" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Truck Management System</h1>
-                <p className="text-sm text-gray-500">Real-time synchronized warehouse operations</p>
+                <h1 className="text-2xl font-bold text-gray-900">Badger Truck Mover</h1>
+                <p className="text-sm text-gray-600">Real-time synchronized warehouse operations</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -888,7 +895,7 @@ export default function TruckManagementSystem() {
                 }`} />
                 <span className="text-sm font-medium capitalize">{syncStatus}</span>
               </div>
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-700">
                 {new Date().toLocaleTimeString()}
               </div>
             </div>
@@ -897,12 +904,12 @@ export default function TruckManagementSystem() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="bg-white border-b">
+      <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-1 overflow-x-auto">
+          <div className="flex gap-1">
             <button
               onClick={() => setActiveTab('print')}
-              className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+              className={`px-6 py-3 font-medium transition-colors ${
                 activeTab === 'print'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
@@ -915,7 +922,7 @@ export default function TruckManagementSystem() {
             </button>
             <button
               onClick={() => setActiveTab('preshift')}
-              className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+              className={`px-6 py-3 font-medium transition-colors ${
                 activeTab === 'preshift'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
@@ -928,7 +935,7 @@ export default function TruckManagementSystem() {
             </button>
             <button
               onClick={() => setActiveTab('movement')}
-              className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+              className={`px-6 py-3 font-medium transition-colors ${
                 activeTab === 'movement'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
@@ -952,5 +959,3 @@ export default function TruckManagementSystem() {
     </div>
   )
 }
-
-// END OF FILE
