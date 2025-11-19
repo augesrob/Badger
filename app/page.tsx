@@ -51,6 +51,12 @@ interface Driver {
   active: boolean
 }
 
+interface VanSemiNumber {
+  id: string
+  number: string
+  type: 'Van' | 'Semi'
+}
+
 // Initial data
 const loadingDoors = ['13A', '13B', '14A', '14B', '15A', '15B']
 const stagingDoors = Array.from({ length: 11 }, (_, i) => (18 + i).toString())
@@ -89,13 +95,24 @@ const statusColors: Record<TruckStatus, string> = {
   'Transfer': 'bg-fuchsia-700 hover:bg-fuchsia-800'
 }
 
+const doorStatusColors: Record<DoorStatus, string> = {
+  'Loading': 'bg-green-600',
+  'EOT': 'bg-yellow-600',
+  'EOT+1': 'bg-orange-600',
+  'Change Truck/Trailer': 'bg-blue-600',
+  'Waiting': 'bg-gray-600',
+  'Done For Night': 'bg-red-600'
+}
+
 export default function TruckManagementSystem() {
   const [activeTab, setActiveTab] = useState<'print' | 'preshift' | 'movement'>('print')
   const [trucks, setTrucks] = useState<TruckData[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
+  const [vanSemiNumbers, setVanSemiNumbers] = useState<VanSemiNumber[]>([])
   const [editingTruck, setEditingTruck] = useState<string | null>(null)
   const [editingDriver, setEditingDriver] = useState<string | null>(null)
   const [newDriverForm, setNewDriverForm] = useState(false)
+  const [newVanSemiForm, setNewVanSemiForm] = useState(false)
   const [filterRoute, setFilterRoute] = useState<Route | 'all'>('all')
   const [filterStatus, setFilterStatus] = useState<TruckStatus | 'all'>('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -110,6 +127,25 @@ export default function TruckManagementSystem() {
     return () => clearInterval(interval)
   }, [])
 
+  // Determine truck type based on number
+  const determineTruckType = (truckNumber: string): TruckType => {
+    const num = parseInt(truckNumber)
+    
+    // Check if it's in van/semi list
+    const vanSemi = vanSemiNumbers.find(vs => vs.number === truckNumber)
+    if (vanSemi) {
+      return vanSemi.type
+    }
+    
+    // Below 170 is manual (Box Truck)
+    if (!isNaN(num) && num < 170) {
+      return 'Box Truck'
+    }
+    
+    // 170 and above is Semi Trailer
+    return 'Semi Trailer'
+  }
+
   // Add new truck
   const addTruck = (door: string, batch: number = 1) => {
     const newTruck: TruckData = {
@@ -121,7 +157,7 @@ export default function TruckManagementSystem() {
       pallets: 0,
       notes: '',
       batch,
-      truckType: 'Van',
+      truckType: 'Box Truck',
       status: 'Ready',
       ignored: false,
       lastUpdated: Date.now()
@@ -132,14 +168,25 @@ export default function TruckManagementSystem() {
 
   // Update truck
   const updateTruck = (id: string, updates: Partial<TruckData>) => {
-    setTrucks(trucks.map(t => 
-      t.id === id ? { ...t, ...updates, lastUpdated: Date.now() } : t
-    ))
+    setTrucks(trucks.map(t => {
+      if (t.id === id) {
+        const updatedTruck = { ...t, ...updates, lastUpdated: Date.now() }
+        // Auto-determine truck type if truck number changed
+        if (updates.truckNumber !== undefined) {
+          updatedTruck.truckType = determineTruckType(updates.truckNumber)
+        }
+        return updatedTruck
+      }
+      return t
+    }))
   }
 
   // Delete truck
   const deleteTruck = (id: string) => {
     setTrucks(trucks.filter(t => t.id !== id))
+    if (editingTruck === id) {
+      setEditingTruck(null)
+    }
   }
 
   // Add driver
@@ -170,6 +217,21 @@ export default function TruckManagementSystem() {
     setDrivers(drivers.filter(d => d.id !== id))
   }
 
+  // Add van/semi number
+  const addVanSemiNumber = (number: string, type: 'Van' | 'Semi') => {
+    const newVanSemi: VanSemiNumber = {
+      id: Date.now().toString(),
+      number,
+      type
+    }
+    setVanSemiNumbers([...vanSemiNumbers, newVanSemi])
+  }
+
+  // Delete van/semi number
+  const deleteVanSemiNumber = (id: string) => {
+    setVanSemiNumbers(vanSemiNumbers.filter(vs => vs.id !== id))
+  }
+
   // Filter trucks
   const filteredTrucks = trucks.filter(truck => {
     if (truck.ignored && activeTab !== 'movement') return false
@@ -197,6 +259,11 @@ export default function TruckManagementSystem() {
       if (!truck.ignored) stats[truck.route]++
     })
     return stats
+  }
+
+  // Get trucks by door for movement view
+  const getTrucksByDoor = (door: string) => {
+    return filteredTrucks.filter(t => t.door === door)
   }
 
   // Render Print Room
@@ -291,7 +358,7 @@ export default function TruckManagementSystem() {
                   <div key={truck.id} className="border border-gray-200 rounded-lg p-4 bg-white">
                     {editingTruck === truck.id ? (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           <div>
                             <Label className="text-gray-700">Truck Number</Label>
                             <Input
@@ -329,22 +396,6 @@ export default function TruckManagementSystem() {
                               <SelectContent>
                                 {routes.map(route => (
                                   <SelectItem key={route} value={route}>{route}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-gray-700">Truck Type</Label>
-                            <Select
-                              value={truck.truckType}
-                              onValueChange={(value: TruckType) => updateTruck(truck.id, { truckType: value })}
-                            >
-                              <SelectTrigger className="border-gray-300 text-gray-900">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {truckTypes.map(type => (
-                                  <SelectItem key={type} value={type}>{type}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -436,7 +487,6 @@ export default function TruckManagementSystem() {
                             </div>
                             <div className="text-sm text-gray-700">Door {truck.door}</div>
                             <div className="text-sm text-gray-700">{truck.route}</div>
-                            <div className="text-sm text-gray-700">{truck.truckType}</div>
                             <div className="text-sm text-gray-700">Pods: {truck.pods}</div>
                             <div className="text-sm text-gray-700">Pallets: {truck.pallets}</div>
                           </div>
@@ -444,9 +494,14 @@ export default function TruckManagementSystem() {
                             <div className="text-sm text-gray-600 mt-2">{truck.notes}</div>
                           )}
                         </div>
-                        <Button onClick={() => setEditingTruck(truck.id)} variant="outline" size="sm" className="border-gray-300 text-gray-700">
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button onClick={() => setEditingTruck(truck.id)} variant="outline" size="sm" className="border-gray-300 text-gray-700">
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button onClick={() => deleteTruck(truck.id)} variant="destructive" size="sm">
+                            <Trash className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -463,6 +518,72 @@ export default function TruckManagementSystem() {
   const renderPreShift = () => {
     return (
       <div className="space-y-6">
+        {/* Van/Semi Number Management */}
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="bg-gray-50 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-gray-900">Van & Semi Number Registry</CardTitle>
+              <Button onClick={() => setNewVanSemiForm(!newVanSemiForm)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Van/Semi
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {newVanSemiForm && (
+              <div className="mb-4 p-4 border border-gray-300 rounded-lg bg-gray-50">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2">
+                    <Label className="text-gray-700">Truck Number</Label>
+                    <Input
+                      id="newVanSemiNumber"
+                      placeholder="Enter truck number"
+                      className="border-gray-300 text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-gray-700">Type</Label>
+                    <Select onValueChange={(value: 'Van' | 'Semi') => {
+                      const input = document.getElementById('newVanSemiNumber') as HTMLInputElement
+                      if (input && input.value) {
+                        addVanSemiNumber(input.value, value)
+                        input.value = ''
+                        setNewVanSemiForm(false)
+                      }
+                    }}>
+                      <SelectTrigger className="border-gray-300 text-gray-900">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Van">Van</SelectItem>
+                        <SelectItem value="Semi">Semi</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {vanSemiNumbers.map(vs => (
+                <div key={vs.id} className={`${vs.type === 'Van' ? 'bg-blue-100 border-blue-300' : 'bg-purple-100 border-purple-300'} border-2 rounded-lg p-3 flex items-center justify-between`}>
+                  <div>
+                    <div className="font-bold text-gray-900">{vs.number}</div>
+                    <div className="text-xs text-gray-600">{vs.type}</div>
+                  </div>
+                  <Button onClick={() => deleteVanSemiNumber(vs.id)} variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                    <Trash className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            {vanSemiNumbers.length === 0 && (
+              <div className="text-center text-gray-500 py-8">
+                No van or semi numbers registered. Add some above.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Driver Management */}
         <Card className="bg-white border-gray-200">
           <CardHeader className="bg-gray-50 border-b border-gray-200">
@@ -606,8 +727,20 @@ export default function TruckManagementSystem() {
                           <div key={position} className="border border-gray-300 rounded p-2 bg-white">
                             <div className="text-xs text-gray-600 mb-1">Position {position} {position === 1 ? '(Front)' : position === 4 ? '(Back)' : ''}</div>
                             {truck ? (
-                              <div className={`${routeColors[truck.route]} text-white rounded p-2 text-center text-sm font-bold shadow-sm`}>
-                                {truck.truckNumber} - {truck.truckType}
+                              <div className="flex items-center justify-between">
+                                <div className={`${routeColors[truck.route]} text-white rounded px-2 py-1 text-sm font-bold shadow-sm flex-1 text-center`}>
+                                  {truck.truckNumber} - {truck.truckType}
+                                </div>
+                                <Button 
+                                  onClick={() => {
+                                    updateTruck(truck.id, { stagingDoor: undefined, stagingPosition: undefined })
+                                  }}
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="ml-2 text-red-600 hover:text-red-700 p-1"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
                               </div>
                             ) : (
                               <div className="bg-gray-100 border border-gray-200 rounded p-2 text-center text-sm text-gray-500">
@@ -629,7 +762,7 @@ export default function TruckManagementSystem() {
                           pallets: 0,
                           notes: '',
                           batch: 1,
-                          truckType: 'Van',
+                          truckType: 'Box Truck',
                           stagingDoor: door,
                           stagingPosition: doorTrucks.length + 1,
                           status: 'Ready',
@@ -676,9 +809,9 @@ export default function TruckManagementSystem() {
               </div>
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-orange-700">
-                  {drivers.reduce((sum, d) => sum + d.trailerNumbers.length, 0)}
+                  {vanSemiNumbers.length}
                 </div>
-                <div className="text-sm font-medium text-orange-600">Total Trailers</div>
+                <div className="text-sm font-medium text-orange-600">Van/Semi Numbers</div>
               </div>
             </div>
           </CardContent>
@@ -739,132 +872,108 @@ export default function TruckManagementSystem() {
           </CardContent>
         </Card>
 
-        {/* Movement Dashboard */}
-        <Card className="bg-white border-gray-200">
-          <CardHeader className="bg-gray-50 border-b border-gray-200">
-            <CardTitle className="text-gray-900">Live Truck Movement Dashboard</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              {filteredTrucks.map(truck => (
-                <div key={truck.id} className="border border-gray-200 rounded-lg p-4 bg-white">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <div className={`${routeColors[truck.route]} text-white rounded px-4 py-2 font-bold text-lg shadow-md`}>
-                        {truck.truckNumber || 'New'}
-                      </div>
-                      <div className={`${statusColors[truck.status]} text-white rounded px-3 py-1 text-sm font-medium shadow-sm`}>
-                        {truck.status}
-                      </div>
-                      <div className="text-sm text-gray-700">Door {truck.door}</div>
-                      <div className="text-sm text-gray-700">{truck.route}</div>
-                      <div className="text-sm text-gray-700">{truck.truckType}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => updateTruck(truck.id, { ignored: !truck.ignored })}
-                        variant={truck.ignored ? "default" : "outline"}
-                        size="sm"
-                        className={truck.ignored ? "bg-gray-600 hover:bg-gray-700 text-white" : "border-gray-300 text-gray-700"}
-                      >
-                        {truck.ignored ? 'Unignore' : 'Ignore'}
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-gray-700">Truck Status</Label>
-                      <Select
-                        value={truck.status}
-                        onValueChange={(value: TruckStatus) => updateTruck(truck.id, { status: value })}
-                      >
-                        <SelectTrigger className="border-gray-300 text-gray-900">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {truckStatuses.map(status => (
-                            <SelectItem key={status} value={status}>{status}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label className="text-gray-700">Door Status</Label>
-                      <Select
-                        value={truck.doorStatus || 'Loading'}
-                        onValueChange={(value: DoorStatus) => updateTruck(truck.id, { doorStatus: value })}
-                      >
-                        <SelectTrigger className="border-gray-300 text-gray-900">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {doorStatuses.map(status => (
-                            <SelectItem key={status} value={status}>{status}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+        {/* Door-by-Door View */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {loadingDoors.map(door => {
+            const doorTrucks = getTrucksByDoor(door)
+            return (
+              <Card key={door} className="bg-white border-gray-200">
+                <CardHeader className="bg-gray-50 border-b border-gray-200">
+                  <CardTitle className="text-gray-900 text-lg">Door {door}</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  {doorTrucks.length === 0 ? (
+                    <div className="text-center text-gray-500 py-4">No trucks assigned</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {doorTrucks.map(truck => (
+                        <div key={truck.id} className="border border-gray-200 rounded-lg p-3 bg-white">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className={`${routeColors[truck.route]} text-white rounded px-3 py-1 font-bold text-sm shadow-sm`}>
+                              {truck.truckNumber || 'New'}
+                            </div>
+                            <div className="text-xs text-gray-600">{truck.truckType}</div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div>
+                              <Label className="text-xs text-gray-600">Truck Status</Label>
+                              <Select
+                                value={truck.status}
+                                onValueChange={(value: TruckStatus) => updateTruck(truck.id, { status: value })}
+                              >
+                                <SelectTrigger className="h-8 text-xs border-gray-300 text-gray-900">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {truckStatuses.map(status => (
+                                    <SelectItem key={status} value={status} className="text-xs">{status}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <div>
+                              <Label className="text-xs text-gray-600">Door Status</Label>
+                              <Select
+                                value={truck.doorStatus || 'Loading'}
+                                onValueChange={(value: DoorStatus) => updateTruck(truck.id, { doorStatus: value })}
+                              >
+                                <SelectTrigger className="h-8 text-xs border-gray-300 text-gray-900">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {doorStatuses.map(status => (
+                                    <SelectItem key={status} value={status} className="text-xs">{status}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
 
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-                    <div className="text-center p-2 bg-blue-50 border border-blue-200 rounded">
-                      <div className="text-sm text-gray-700">Pods</div>
-                      <div className="text-xl font-bold text-blue-700">{truck.pods}</div>
-                    </div>
-                    <div className="text-center p-2 bg-green-50 border border-green-200 rounded">
-                      <div className="text-sm text-gray-700">Pallets</div>
-                      <div className="text-xl font-bold text-green-700">{truck.pallets}</div>
-                    </div>
-                    <div className="text-center p-2 bg-purple-50 border border-purple-200 rounded">
-                      <div className="text-sm text-gray-700">Batch</div>
-                      <div className="text-xl font-bold text-purple-700">{truck.batch}</div>
-                    </div>
-                  </div>
+                          <div className="mt-2 grid grid-cols-3 gap-1">
+                            <div className="text-center p-1 bg-blue-50 border border-blue-200 rounded">
+                              <div className="text-xs text-gray-600">Pods</div>
+                              <div className="text-sm font-bold text-blue-700">{truck.pods}</div>
+                            </div>
+                            <div className="text-center p-1 bg-green-50 border border-green-200 rounded">
+                              <div className="text-xs text-gray-600">Pallets</div>
+                              <div className="text-sm font-bold text-green-700">{truck.pallets}</div>
+                            </div>
+                            <div className="text-center p-1 bg-purple-50 border border-purple-200 rounded">
+                              <div className="text-xs text-gray-600">Batch</div>
+                              <div className="text-sm font-bold text-purple-700">{truck.batch}</div>
+                            </div>
+                          </div>
 
-                  {truck.notes && (
-                    <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded">
-                      <div className="text-sm font-medium text-gray-700 mb-1">Notes:</div>
-                      <div className="text-sm text-gray-600">{truck.notes}</div>
+                          {truck.notes && (
+                            <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded">
+                              <div className="text-xs text-gray-600">{truck.notes}</div>
+                            </div>
+                          )}
+
+                          <div className="mt-2 flex items-center justify-between">
+                            <div className="text-xs text-gray-500">
+                              {new Date(truck.lastUpdated).toLocaleTimeString()}
+                            </div>
+                            <Button
+                              onClick={() => updateTruck(truck.id, { ignored: !truck.ignored })}
+                              variant="ghost"
+                              size="sm"
+                              className={`text-xs h-6 ${truck.ignored ? 'text-green-600' : 'text-gray-600'}`}
+                            >
+                              {truck.ignored ? 'Unignore' : 'Ignore'}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
-
-                  <div className="mt-4 text-xs text-gray-500">
-                    Last updated: {new Date(truck.lastUpdated).toLocaleTimeString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <Card className="bg-white border-gray-200">
-          <CardHeader className="bg-gray-50 border-b border-gray-200">
-            <CardTitle className="text-gray-900">Quick Status Updates</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {truckStatuses.slice(0, 8).map(status => (
-                <Button
-                  key={status}
-                  onClick={() => {
-                    const selectedTrucks = filteredTrucks.filter(t => !t.ignored)
-                    if (selectedTrucks.length > 0 && window.confirm(`Update ${selectedTrucks.length} trucks to ${status}?`)) {
-                      selectedTrucks.forEach(truck => updateTruck(truck.id, { status }))
-                    }
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className={`${statusColors[status]} text-white border-0 shadow-sm`}
-                >
-                  {status}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
       </div>
     )
   }
