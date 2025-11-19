@@ -54,6 +54,7 @@ interface MovementTruck {
   truckType: TruckType
   status: TruckStatus
   ignored: boolean
+  trailerNumber?: string
   lastUpdated: number
 }
 
@@ -75,9 +76,14 @@ interface VanSemiNumber {
   type: 'Van' | 'Semi'
 }
 
-interface DoorStatusData {
-  door: string
-  status: DoorStatus
+interface AppData {
+  printRoomTrucks: PrintRoomTruck[]
+  preShiftTrucks: PreShiftTruck[]
+  movementTrucks: Record<string, MovementTruck>
+  doorStatuses: Record<string, DoorStatus>
+  drivers: Driver[]
+  vanSemiNumbers: VanSemiNumber[]
+  lastSync: number
 }
 
 // Initial data
@@ -127,6 +133,8 @@ const doorStatusColors: Record<DoorStatus, string> = {
   'Done For Night': 'bg-red-600'
 }
 
+const STORAGE_KEY = 'badger-truck-mover-data'
+
 export default function TruckManagementSystem() {
   const [activeTab, setActiveTab] = useState<'print' | 'preshift' | 'movement'>('print')
   const [printRoomTrucks, setPrintRoomTrucks] = useState<PrintRoomTruck[]>([])
@@ -140,32 +148,109 @@ export default function TruckManagementSystem() {
   const [newDriverForm, setNewDriverForm] = useState(false)
   const [newVanSemiForm, setNewVanSemiForm] = useState(false)
   const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'offline'>('connected')
+  const [lastSync, setLastSync] = useState<number>(Date.now())
+  const [isLoaded, setIsLoaded] = useState(false)
 
-  // Initialize door statuses
+  // Load data from localStorage on mount
   useEffect(() => {
-    const initialStatuses: Record<string, DoorStatus> = {}
-    loadingDoors.forEach(door => {
-      initialStatuses[door] = 'Loading'
-    })
-    setDoorStatuses(initialStatuses)
+    const loadData = () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY)
+        if (stored) {
+          const data: AppData = JSON.parse(stored)
+          setPrintRoomTrucks(data.printRoomTrucks || [])
+          setPreShiftTrucks(data.preShiftTrucks || [])
+          setMovementTrucks(data.movementTrucks || {})
+          setDoorStatuses(data.doorStatuses || {})
+          setDrivers(data.drivers || [])
+          setVanSemiNumbers(data.vanSemiNumbers || [])
+          setLastSync(data.lastSync || Date.now())
+        } else {
+          // Initialize door statuses if no data
+          const initialStatuses: Record<string, DoorStatus> = {}
+          loadingDoors.forEach(door => {
+            initialStatuses[door] = 'Loading'
+          })
+          setDoorStatuses(initialStatuses)
+        }
+      } catch (error) {
+        console.error('Error loading data:', error)
+      }
+      setIsLoaded(true)
+    }
+
+    loadData()
   }, [])
 
-  // Simulate real-time sync
+  // Save data to localStorage whenever it changes
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSyncStatus('syncing')
-      setTimeout(() => setSyncStatus('connected'), 500)
-    }, 5000)
+    if (!isLoaded) return
+
+    const saveData = () => {
+      try {
+        const data: AppData = {
+          printRoomTrucks,
+          preShiftTrucks,
+          movementTrucks,
+          doorStatuses,
+          drivers,
+          vanSemiNumbers,
+          lastSync: Date.now()
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+        setLastSync(Date.now())
+      } catch (error) {
+        console.error('Error saving data:', error)
+      }
+    }
+
+    saveData()
+  }, [printRoomTrucks, preShiftTrucks, movementTrucks, doorStatuses, drivers, vanSemiNumbers, isLoaded])
+
+  // Poll for changes from other tabs/devices
+  useEffect(() => {
+    const checkForUpdates = () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY)
+        if (stored) {
+          const data: AppData = JSON.parse(stored)
+          if (data.lastSync > lastSync) {
+            setSyncStatus('syncing')
+            setPrintRoomTrucks(data.printRoomTrucks || [])
+            setPreShiftTrucks(data.preShiftTrucks || [])
+            setMovementTrucks(data.movementTrucks || {})
+            setDoorStatuses(data.doorStatuses || {})
+            setDrivers(data.drivers || [])
+            setVanSemiNumbers(data.vanSemiNumbers || [])
+            setLastSync(data.lastSync)
+            setTimeout(() => setSyncStatus('connected'), 500)
+          }
+        }
+      } catch (error) {
+        console.error('Error checking for updates:', error)
+      }
+    }
+
+    const interval = setInterval(checkForUpdates, 2000)
     return () => clearInterval(interval)
-  }, [])
+  }, [lastSync])
 
   // Sync Print Room and PreShift to Movement
   useEffect(() => {
+    if (!isLoaded) return
+
     const newMovementTrucks: Record<string, MovementTruck> = {}
     
     printRoomTrucks.forEach(printTruck => {
       const preShiftTruck = preShiftTrucks.find(pt => pt.truckNumber === printTruck.truckNumber)
       const existingMovement = movementTrucks[printTruck.truckNumber]
+      
+      // Extract trailer number from truck number (e.g., "151-1" -> "-1")
+      const trailerMatch = printTruck.truckNumber.match(/-(\d+)$/)
+      const trailerNumber = trailerMatch ? `-${trailerMatch[1]}` : undefined
+      
+      // Get base truck number without trailer (e.g., "151-1" -> "151")
+      const baseTruckNumber = printTruck.truckNumber.replace(/-\d+$/, '')
       
       newMovementTrucks[printTruck.truckNumber] = {
         truckNumber: printTruck.truckNumber,
@@ -175,32 +260,48 @@ export default function TruckManagementSystem() {
         pallets: printTruck.pallets,
         notes: printTruck.notes,
         batch: printTruck.batch,
-        truckType: determineTruckType(printTruck.truckNumber),
+        truckType: determineTruckType(baseTruckNumber),
         status: existingMovement?.status || (preShiftTruck ? 'Ready' : 'Missing'),
         ignored: existingMovement?.ignored || false,
+        trailerNumber: trailerNumber,
         lastUpdated: Date.now()
       }
     })
     
     setMovementTrucks(newMovementTrucks)
-  }, [printRoomTrucks, preShiftTrucks, vanSemiNumbers])
+  }, [printRoomTrucks, preShiftTrucks, drivers, isLoaded])
 
   // Determine truck type based on number
   const determineTruckType = (truckNumber: string): TruckType => {
-    const num = parseInt(truckNumber)
+    // Remove any trailer suffix for type determination
+    const baseTruckNumber = truckNumber.replace(/-\d+$/, '')
+    const num = parseInt(baseTruckNumber)
     
-    // Check if it's in van/semi list
-    const vanSemi = vanSemiNumbers.find(vs => vs.number === truckNumber)
+    // Check if it's in van/semi list (these are exceptions)
+    const vanSemi = vanSemiNumbers.find(vs => vs.number === baseTruckNumber)
     if (vanSemi) {
       return vanSemi.type
     }
     
-    // Below 170 is manual (Box Truck)
+    // Check if it's in the driver database (Semi with trailers)
+    const driver = drivers.find(d => 
+      d.tractorNumber === baseTruckNumber || 
+      d.trailer1 === baseTruckNumber || 
+      d.trailer2 === baseTruckNumber || 
+      d.trailer3 === baseTruckNumber
+    )
+    if (driver) {
+      return 'Semi'
+    }
+    
+    // Default logic:
+    // Doors 18-28 (staging) are mostly Box Trucks
+    // Below 170 is Box Truck
+    // 170 and above is Semi Trailer
     if (!isNaN(num) && num < 170) {
       return 'Box Truck'
     }
     
-    // 170 and above is Semi Trailer
     return 'Semi Trailer'
   }
 
@@ -437,11 +538,11 @@ export default function TruckManagementSystem() {
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           <div>
-                            <Label className="text-gray-700">Truck Number</Label>
+                            <Label className="text-gray-700">Truck Number (e.g., 151-1)</Label>
                             <Input
                               value={truck.truckNumber}
                               onChange={(e) => updatePrintRoomTruck(truck.id, { truckNumber: e.target.value })}
-                              placeholder="Enter truck #"
+                              placeholder="Enter truck # (151-1)"
                               className="border-gray-300 text-gray-900 bg-white"
                             />
                           </div>
@@ -599,7 +700,7 @@ export default function TruckManagementSystem() {
         <Card className="bg-white border-gray-200">
           <CardHeader className="bg-gray-50 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-gray-900">Van & Semi Number Registry</CardTitle>
+              <CardTitle className="text-gray-900">Van & Semi Number Registry (Exceptions)</CardTitle>
               <Button onClick={() => setNewVanSemiForm(!newVanSemiForm)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Van/Semi
@@ -607,6 +708,11 @@ export default function TruckManagementSystem() {
             </div>
           </CardHeader>
           <CardContent className="pt-6">
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-gray-700">
+                <strong>Note:</strong> Doors 18-28 are mostly Box Trucks. Use this registry only for exceptions (Vans or Semis in staging).
+              </p>
+            </div>
             {newVanSemiForm && (
               <div className="mb-4 p-4 border border-gray-300 rounded-lg bg-gray-50">
                 <div className="grid grid-cols-3 gap-4">
@@ -655,7 +761,7 @@ export default function TruckManagementSystem() {
             </div>
             {vanSemiNumbers.length === 0 && (
               <div className="text-center text-gray-500 py-8">
-                No van or semi numbers registered. Add some above.
+                No exceptions registered. Most staging trucks are Box Trucks by default.
               </div>
             )}
           </CardContent>
@@ -665,7 +771,7 @@ export default function TruckManagementSystem() {
         <Card className="bg-white border-gray-200">
           <CardHeader className="bg-gray-50 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-gray-900">Driver & Equipment Database</CardTitle>
+              <CardTitle className="text-gray-900">Driver & Equipment Database (Semis & Trailers)</CardTitle>
               <Button onClick={() => setNewDriverForm(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Driver
@@ -710,7 +816,7 @@ export default function TruckManagementSystem() {
                         <Input
                           value={driver.tractorNumber}
                           onChange={(e) => updateDriver(driver.id, { tractorNumber: e.target.value })}
-                          placeholder="Tractor #"
+                          placeholder="Tractor # (e.g., 151)"
                           className="border-gray-300 text-gray-900 bg-white"
                         />
                       </div>
@@ -720,22 +826,25 @@ export default function TruckManagementSystem() {
                           <Input
                             value={driver.trailer1}
                             onChange={(e) => updateDriver(driver.id, { trailer1: e.target.value })}
-                            placeholder="Trailer -1"
+                            placeholder="Trailer 1 (e.g., 123)"
                             className="border-gray-300 text-gray-900 bg-white"
                           />
                           <Input
                             value={driver.trailer2}
                             onChange={(e) => updateDriver(driver.id, { trailer2: e.target.value })}
-                            placeholder="Trailer -2"
+                            placeholder="Trailer 2"
                             className="border-gray-300 text-gray-900 bg-white"
                           />
                           <Input
                             value={driver.trailer3}
                             onChange={(e) => updateDriver(driver.id, { trailer3: e.target.value })}
-                            placeholder="Trailer -3"
+                            placeholder="Trailer 3"
                             className="border-gray-300 text-gray-900 bg-white"
                           />
                         </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Print Room uses format: 151-1 (Tractor 151 with Trailer 1)
+                        </p>
                       </div>
                       <div>
                         <Label className="text-gray-700">Notes</Label>
@@ -879,7 +988,7 @@ export default function TruckManagementSystem() {
                 <div className="text-3xl font-bold text-orange-700">
                   {vanSemiNumbers.length}
                 </div>
-                <div className="text-sm font-medium text-orange-600">Van/Semi Numbers</div>
+                <div className="text-sm font-medium text-orange-600">Exceptions</div>
               </div>
             </div>
           </CardContent>
@@ -908,185 +1017,4 @@ export default function TruckManagementSystem() {
                         value={currentDoorStatus}
                         onValueChange={(value: DoorStatus) => updateDoorStatus(door, value)}
                       >
-                        <SelectTrigger className={`h-9 text-sm border-2 ${doorStatusColors[currentDoorStatus]} text-white font-bold`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white border border-gray-300 z-50">
-                          {doorStatusOptions.map(status => (
-                            <SelectItem key={status} value={status} className="text-sm text-gray-900 bg-white hover:bg-gray-100">{status}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  {doorTrucks.length === 0 ? (
-                    <div className="text-center text-gray-500 py-8 text-sm">No trucks assigned</div>
-                  ) : (
-                    <div className="space-y-3">
-                      {doorTrucks.map(truck => (
-                        <div key={truck.truckNumber} className="border-2 border-gray-300 rounded-lg p-3 bg-white">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className={`${routeColors[truck.route]} text-white rounded px-3 py-1 font-bold text-base shadow-sm`}>
-                              {truck.truckNumber}
-                            </div>
-                            <div className="text-xs font-medium text-gray-700 bg-gray-100 px-2 py-1 rounded">
-                              {truck.truckType}
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label className="text-xs text-gray-600 font-medium">Truck Status</Label>
-                            <Select
-                              value={truck.status}
-                              onValueChange={(value: TruckStatus) => updateMovementTruck(truck.truckNumber, { status: value })}
-                            >
-                              <SelectTrigger className="h-9 text-sm border-gray-300 bg-white mt-1 text-gray-900">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="bg-white border border-gray-300 z-50">
-                                {truckStatuses.map(status => (
-                                  <SelectItem key={status} value={status} className="text-sm text-gray-900 bg-white hover:bg-gray-100">{status}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="mt-3 grid grid-cols-3 gap-1">
-                            <div className="text-center p-2 bg-blue-50 border border-blue-200 rounded">
-                              <div className="text-xs text-gray-600">Pods</div>
-                              <div className="text-base font-bold text-blue-700">{truck.pods}</div>
-                            </div>
-                            <div className="text-center p-2 bg-green-50 border border-green-200 rounded">
-                              <div className="text-xs text-gray-600">Pallets</div>
-                              <div className="text-base font-bold text-green-700">{truck.pallets}</div>
-                            </div>
-                            <div className="text-center p-2 bg-purple-50 border border-purple-200 rounded">
-                              <div className="text-xs text-gray-600">Batch</div>
-                              <div className="text-base font-bold text-purple-700">{truck.batch}</div>
-                            </div>
-                          </div>
-
-                          {truck.notes && (
-                            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                              <div className="text-xs text-gray-700">{truck.notes}</div>
-                            </div>
-                          )}
-
-                          <div className="mt-2 flex items-center justify-between">
-                            <div className="text-xs text-gray-500">
-                              {new Date(truck.lastUpdated).toLocaleTimeString()}
-                            </div>
-                            <Button
-                              onClick={() => updateMovementTruck(truck.truckNumber, { ignored: !truck.ignored })}
-                              variant="ghost"
-                              size="sm"
-                              className={`text-xs h-7 px-2 ${truck.ignored ? 'text-green-600 hover:bg-green-50' : 'text-gray-600 hover:bg-gray-100'}`}
-                            >
-                              {truck.ignored ? 'Unignore' : 'Ignore'}
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Truck className="w-8 h-8 text-blue-600" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Badger Truck Mover</h1>
-                <p className="text-sm text-gray-600">Real-time synchronized warehouse operations</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${
-                syncStatus === 'connected' ? 'bg-green-100 text-green-700' :
-                syncStatus === 'syncing' ? 'bg-yellow-100 text-yellow-700' :
-                'bg-red-100 text-red-700'
-              }`}>
-                <div className={`w-2 h-2 rounded-full ${
-                  syncStatus === 'connected' ? 'bg-green-500' :
-                  syncStatus === 'syncing' ? 'bg-yellow-500' :
-                  'bg-red-500'
-                }`} />
-                <span className="text-sm font-medium capitalize">{syncStatus}</span>
-              </div>
-              <div className="text-sm text-gray-700">
-                {new Date().toLocaleTimeString()}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-1">
-            <button
-              onClick={() => setActiveTab('print')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'print'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Menu className="w-4 h-4" />
-                Print Room
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('preshift')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'preshift'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                PreShift Setup
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('movement')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'movement'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                Live Movement
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {activeTab === 'print' && renderPrintRoom()}
-        {activeTab === 'preshift' && renderPreShift()}
-        {activeTab === 'movement' && renderMovement()}
-      </div>
-    </div>
-  )
-}
+                        <SelectTrigger className={`h-9 text-sm border-2 ${doorStatusColors[currentDoorStatus]} text-white font-bol
