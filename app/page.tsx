@@ -89,38 +89,47 @@ const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledoni
 const doorStatusOptions: DoorStatus[] = ['Loading', 'EOT', 'EOT+1', 'Change Truck/Trailer', 'Waiting', 'Done For Night']
 const truckStatuses: TruckStatus[] = ['On Route', 'In Door', 'Put Away', 'In Front', 'Ready', 'In Back', 'The Rock', 'Yard', 'Missing', 'Doors 8-11', 'Doors 12A-15B', 'End', 'Gap', 'Transfer']
 
-const routeColors: Record<Route, string> = {
-  '1-Fond Du Lac': 'bg-blue-600',
-  '2-Green Bay': 'bg-green-600',
-  '3-Wausau': 'bg-purple-600',
-  '4-Caledonia': 'bg-orange-600',
-  '5-Chippewa Falls': 'bg-red-600'
+const getRouteColor = (route: Route): string => {
+  const colors = {
+    '1-Fond Du Lac': '#2563eb',
+    '2-Green Bay': '#16a34a',
+    '3-Wausau': '#9333ea',
+    '4-Caledonia': '#ea580c',
+    '5-Chippewa Falls': '#dc2626'
+  }
+  return colors[route]
 }
 
-const doorStatusColors: Record<DoorStatus, string> = {
-  'Loading': 'bg-green-600',
-  'EOT': 'bg-yellow-600',
-  'EOT+1': 'bg-orange-600',
-  'Change Truck/Trailer': 'bg-blue-600',
-  'Waiting': 'bg-gray-600',
-  'Done For Night': 'bg-red-600'
+const getDoorStatusColor = (status: DoorStatus): string => {
+  const colors = {
+    'Loading': '#16a34a',
+    'EOT': '#ca8a04',
+    'EOT+1': '#ea580c',
+    'Change Truck/Trailer': '#2563eb',
+    'Waiting': '#6b7280',
+    'Done For Night': '#dc2626'
+  }
+  return colors[status]
 }
 
-const statusColors: Record<TruckStatus, string> = {
-  'On Route': 'bg-blue-500',
-  'In Door': 'bg-green-500',
-  'Put Away': 'bg-gray-500',
-  'In Front': 'bg-yellow-500',
-  'Ready': 'bg-cyan-500',
-  'In Back': 'bg-indigo-500',
-  'The Rock': 'bg-stone-500',
-  'Yard': 'bg-lime-500',
-  'Missing': 'bg-red-500',
-  'Doors 8-11': 'bg-pink-500',
-  'Doors 12A-15B': 'bg-teal-500',
-  'End': 'bg-violet-500',
-  'Gap': 'bg-amber-500',
-  'Transfer': 'bg-fuchsia-500'
+const getTruckStatusColor = (status: TruckStatus): string => {
+  const colors = {
+    'On Route': '#3b82f6',
+    'In Door': '#22c55e',
+    'Put Away': '#6b7280',
+    'In Front': '#eab308',
+    'Ready': '#06b6d4',
+    'In Back': '#6366f1',
+    'The Rock': '#78716c',
+    'Yard': '#84cc16',
+    'Missing': '#ef4444',
+    'Doors 8-11': '#ec4899',
+    'Doors 12A-15B': '#14b8a6',
+    'End': '#8b5cf6',
+    'Gap': '#f59e0b',
+    'Transfer': '#d946ef'
+  }
+  return colors[status]
 }
 
 const STORAGE_KEY = 'badger-truck-mover-data'
@@ -398,12 +407,21 @@ export default function TruckManagementSystem() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${
-                syncStatus === 'connected' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                <div className={`w-2 h-2 rounded-full ${
-                  syncStatus === 'connected' ? 'bg-green-500' : 'bg-yellow-500'
-                }`} />
+              <div style={{
+                backgroundColor: syncStatus === 'connected' ? '#dcfce7' : '#fef3c7',
+                color: syncStatus === 'connected' ? '#15803d' : '#a16207',
+                padding: '0.25rem 0.75rem',
+                borderRadius: '9999px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <div style={{
+                  width: '0.5rem',
+                  height: '0.5rem',
+                  borderRadius: '9999px',
+                  backgroundColor: syncStatus === 'connected' ? '#22c55e' : '#eab308'
+                }} />
                 <span className="text-sm font-medium capitalize">{syncStatus}</span>
               </div>
             </div>
@@ -461,7 +479,13 @@ export default function TruckManagementSystem() {
                     const stats = getRouteStats()
                     return (
                       <div key={route} className="text-center">
-                        <div className={`${routeColors[route]} text-white rounded-lg p-3 mb-2`}>
+                        <div style={{
+                          backgroundColor: getRouteColor(route),
+                          color: 'white',
+                          borderRadius: '0.5rem',
+                          padding: '0.75rem',
+                          marginBottom: '0.5rem'
+                        }}>
                           <div className="text-2xl font-bold">{stats[route]}</div>
                         </div>
                         <div className="text-sm font-medium">{route}</div>
@@ -565,7 +589,13 @@ export default function TruckManagementSystem() {
                         ) : (
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                              <div className={`${routeColors[truck.route]} text-white rounded px-3 py-1 font-bold`}>
+                              <div style={{
+                                backgroundColor: getRouteColor(truck.route),
+                                color: 'white',
+                                borderRadius: '0.25rem',
+                                padding: '0.25rem 0.75rem',
+                                fontWeight: 'bold'
+                              }}>
                                 {truck.truckNumber || 'New'}
                               </div>
                               <div className="text-sm text-gray-600">Door {truck.door}</div>
@@ -634,7 +664,11 @@ export default function TruckManagementSystem() {
                     <div key={vs.id} className="border rounded-lg p-3 flex items-center justify-between bg-white">
                       <div>
                         <div className="font-bold text-gray-900">{vs.number}</div>
-                        <div className={`text-xs font-medium ${vs.type === 'Van' ? 'text-blue-600' : 'text-purple-600'}`}>{vs.type}</div>
+                        <div style={{
+                          fontSize: '0.75rem',
+                          fontWeight: '500',
+                          color: vs.type === 'Van' ? '#2563eb' : '#9333ea'
+                        }}>{vs.type}</div>
                       </div>
                       <Button onClick={() => deleteVanSemiNumber(vs.id)} variant="ghost" size="sm">
                         <Trash className="w-4 h-4 text-red-500" />
@@ -658,7 +692,7 @@ export default function TruckManagementSystem() {
               <CardContent>
                 {newDriverForm && (
                   <div className="mb-4">
-                    <Button onClick={addDriver} className="w-full bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={addDriver} className="w-full" style={{ backgroundColor: '#2563eb' }}>
                       Create New Driver Profile
                     </Button>
                   </div>
@@ -803,7 +837,13 @@ export default function TruckManagementSystem() {
                       <div className="space-y-2">
                         <CardTitle className="text-xl font-bold">Door {door}</CardTitle>
                         <Select value={currentDoorStatus} onValueChange={(value: DoorStatus) => updateDoorStatus(door, value)}>
-                          <SelectTrigger className={`h-10 ${doorStatusColors[currentDoorStatus]} text-white font-bold border-0`}>
+                          <SelectTrigger style={{
+                            height: '2.5rem',
+                            backgroundColor: getDoorStatusColor(currentDoorStatus),
+                            color: 'white',
+                            fontWeight: 'bold',
+                            border: 'none'
+                          }}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -818,9 +858,17 @@ export default function TruckManagementSystem() {
                       <div className="space-y-3">
                         {doorTrucks.map(truck => (
                           <div key={truck.truckNumber} className="border-2 rounded-lg p-3 bg-white">
-                            <div className={`${routeColors[truck.route]} text-white rounded px-3 py-2 text-sm font-bold mb-2`}>
+                            <div style={{
+                              backgroundColor: getRouteColor(truck.route),
+                              color: 'white',
+                              borderRadius: '0.25rem',
+                              padding: '0.5rem 0.75rem',
+                              fontSize: '0.875rem',
+                              fontWeight: 'bold',
+                              marginBottom: '0.5rem'
+                            }}>
                               {truck.truckNumber}
-                              {truck.trailerNumber && <span className="ml-1">({truck.trailerNumber})</span>}
+                              {truck.trailerNumber && <span style={{ marginLeft: '0.25rem' }}>({truck.trailerNumber})</span>}
                             </div>
                             <div className="text-xs space-y-1 mb-2 text-gray-700">
                               <div className="font-medium">Type: {truck.truckType}</div>
@@ -828,7 +876,14 @@ export default function TruckManagementSystem() {
                               <div>Pods: {truck.pods} | Pallets: {truck.pallets}</div>
                             </div>
                             <Select value={truck.status} onValueChange={(value: TruckStatus) => updateMovementTruck(truck.truckNumber, { status: value })}>
-                              <SelectTrigger className={`h-9 text-xs font-medium ${statusColors[truck.status]} text-white border-0`}>
+                              <SelectTrigger style={{
+                                height: '2.25rem',
+                                fontSize: '0.75rem',
+                                fontWeight: '500',
+                                backgroundColor: getTruckStatusColor(truck.status),
+                                color: 'white',
+                                border: 'none'
+                              }}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
