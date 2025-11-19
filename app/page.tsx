@@ -86,7 +86,7 @@ const stagingDoors = Array.from({ length: 11 }, (_, i) => (18 + i).toString())
 const receivingDoors = ['8', '9', '10', '11']
 const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledonia', '5-Chippewa Falls']
 const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Semi Trailer', 'Semi']
-const doorStatuses: DoorStatus[] = ['Loading', 'EOT', 'EOT+1', 'Change Truck/Trailer', 'Waiting', 'Done For Night']
+const doorStatusOptions: DoorStatus[] = ['Loading', 'EOT', 'EOT+1', 'Change Truck/Trailer', 'Waiting', 'Done For Night']
 const truckStatuses: TruckStatus[] = [
   'On Route', 'In Door', 'Put Away', 'In Front', 'Ready', 'In Back',
   'The Rock', 'Yard', 'Missing', 'Doors 8-11', 'Doors 12A-15B',
@@ -912,7 +912,7 @@ export default function TruckManagementSystem() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-white border border-gray-300 z-50">
-                          {doorStatuses.map(status => (
+                          {doorStatusOptions.map(status => (
                             <SelectItem key={status} value={status} className="text-sm text-gray-900 bg-white hover:bg-gray-100">{status}</SelectItem>
                           ))}
                         </SelectContent>
