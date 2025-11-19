@@ -15,13 +15,10 @@ import {
 } from "@/components/ui/select"
 import { Truck, Users, Activity, Plus, Trash, Edit, Save, X } from 'lucide-react'
 
-// Types
 type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
 type TruckType = 'Van' | 'Box Truck' | 'Semi Trailer' | 'Semi'
 type DoorStatus = 'Loading' | 'EOT' | 'EOT+1' | 'Change Truck/Trailer' | 'Waiting' | 'Done For Night'
-type TruckStatus = 'On Route' | 'In Door' | 'Put Away' | 'In Front' | 'Ready' | 'In Back' | 
-                   'The Rock' | 'Yard' | 'Missing' | 'Doors 8-11' | 'Doors 12A-15B' | 
-                   'End' | 'Gap' | 'Transfer'
+type TruckStatus = 'On Route' | 'In Door' | 'Put Away' | 'In Front' | 'Ready' | 'In Back' | 'The Rock' | 'Yard' | 'Missing' | 'Doors 8-11' | 'Doors 12A-15B' | 'End' | 'Gap' | 'Transfer'
 
 interface PrintRoomTruck {
   id: string
@@ -90,11 +87,7 @@ const loadingDoors = ['13A', '13B', '14A', '14B', '15A', '15B']
 const stagingDoors = Array.from({ length: 11 }, (_, i) => (18 + i).toString())
 const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledonia', '5-Chippewa Falls']
 const doorStatusOptions: DoorStatus[] = ['Loading', 'EOT', 'EOT+1', 'Change Truck/Trailer', 'Waiting', 'Done For Night']
-const truckStatuses: TruckStatus[] = [
-  'On Route', 'In Door', 'Put Away', 'In Front', 'Ready', 'In Back',
-  'The Rock', 'Yard', 'Missing', 'Doors 8-11', 'Doors 12A-15B',
-  'End', 'Gap', 'Transfer'
-]
+const truckStatuses: TruckStatus[] = ['On Route', 'In Door', 'Put Away', 'In Front', 'Ready', 'In Back', 'The Rock', 'Yard', 'Missing', 'Doors 8-11', 'Doors 12A-15B', 'End', 'Gap', 'Transfer']
 
 const routeColors: Record<Route, string> = {
   '1-Fond Du Lac': 'bg-blue-600',
@@ -232,7 +225,7 @@ export default function TruckManagementSystem() {
       }
     })
     setMovementTrucks(newMovementTrucks)
-  }, [printRoomTrucks, preShiftTrucks, drivers, isLoaded])
+  }, [printRoomTrucks, preShiftTrucks, drivers, vanSemiNumbers, isLoaded])
 
   const determineTruckType = (truckNumber: string): TruckType => {
     const baseTruckNumber = truckNumber.replace(/-\d+$/, '')
@@ -249,3 +242,595 @@ export default function TruckManagementSystem() {
     if (!isNaN(num) && num < 170) return 'Box Truck'
     return 'Semi Trailer'
   }
+
+  const addPrintRoomTruck = (door: string, batch: number = 1) => {
+    const newTruck: PrintRoomTruck = {
+      id: Date.now().toString(),
+      truckNumber: '',
+      door,
+      route: '1-Fond Du Lac',
+      pods: 0,
+      pallets: 0,
+      notes: '',
+      batch,
+      lastUpdated: Date.now()
+    }
+    setPrintRoomTrucks([...printRoomTrucks, newTruck])
+    setEditingTruck(newTruck.id)
+  }
+
+  const updatePrintRoomTruck = (id: string, updates: Partial<PrintRoomTruck>) => {
+    setPrintRoomTrucks(printRoomTrucks.map(t => 
+      t.id === id ? { ...t, ...updates, lastUpdated: Date.now() } : t
+    ))
+  }
+
+  const deletePrintRoomTruck = (id: string) => {
+    setPrintRoomTrucks(printRoomTrucks.filter(t => t.id !== id))
+    if (editingTruck === id) setEditingTruck(null)
+  }
+
+  const addPreShiftTruck = (door: string, position: number) => {
+    const newTruck: PreShiftTruck = {
+      id: Date.now().toString(),
+      truckNumber: '',
+      stagingDoor: door,
+      stagingPosition: position,
+      lastUpdated: Date.now()
+    }
+    setPreShiftTrucks([...preShiftTrucks, newTruck])
+    return newTruck.id
+  }
+
+  const updatePreShiftTruck = (id: string, updates: Partial<PreShiftTruck>) => {
+    setPreShiftTrucks(preShiftTrucks.map(t => 
+      t.id === id ? { ...t, ...updates, lastUpdated: Date.now() } : t
+    ))
+  }
+
+  const deletePreShiftTruck = (id: string) => {
+    setPreShiftTrucks(preShiftTrucks.filter(t => t.id !== id))
+  }
+
+  const updateMovementTruck = (truckNumber: string, updates: Partial<MovementTruck>) => {
+    setMovementTrucks(prev => ({
+      ...prev,
+      [truckNumber]: {
+        ...prev[truckNumber],
+        ...updates,
+        lastUpdated: Date.now()
+      }
+    }))
+  }
+
+  const updateDoorStatus = (door: string, status: DoorStatus) => {
+    setDoorStatuses(prev => ({
+      ...prev,
+      [door]: status
+    }))
+  }
+
+  const addDriver = () => {
+    const newDriver: Driver = {
+      id: Date.now().toString(),
+      name: '',
+      phone: '',
+      tractorNumber: '',
+      trailer1: '',
+      trailer2: '',
+      trailer3: '',
+      notes: '',
+      active: true
+    }
+    setDrivers([...drivers, newDriver])
+    setEditingDriver(newDriver.id)
+    setNewDriverForm(false)
+  }
+
+  const updateDriver = (id: string, updates: Partial<Driver>) => {
+    setDrivers(drivers.map(d => 
+      d.id === id ? { ...d, ...updates } : d
+    ))
+  }
+
+  const deleteDriver = (id: string) => {
+    setDrivers(drivers.filter(d => d.id !== id))
+  }
+
+  const addVanSemiNumber = (number: string, type: 'Van' | 'Semi') => {
+    const newVanSemi: VanSemiNumber = {
+      id: Date.now().toString(),
+      number,
+      type
+    }
+    setVanSemiNumbers([...vanSemiNumbers, newVanSemi])
+  }
+
+  const deleteVanSemiNumber = (id: string) => {
+    setVanSemiNumbers(vanSemiNumbers.filter(vs => vs.id !== id))
+  }
+
+  const getPrintRoomTrucksByBatch = (batch: number) => {
+    return printRoomTrucks.filter(t => t.batch === batch)
+  }
+
+  const getRouteStats = () => {
+    const stats: Record<Route, number> = {
+      '1-Fond Du Lac': 0,
+      '2-Green Bay': 0,
+      '3-Wausau': 0,
+      '4-Caledonia': 0,
+      '5-Chippewa Falls': 0
+    }
+    printRoomTrucks.forEach(truck => {
+      stats[truck.route]++
+    })
+    return stats
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Truck className="w-8 h-8 text-blue-600" />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Truck Management System</h1>
+                <p className="text-sm text-gray-500">Real-time synchronized warehouse operations</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${
+                syncStatus === 'connected' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  syncStatus === 'connected' ? 'bg-green-500' : 'bg-yellow-500'
+                }`} />
+                <span className="text-sm font-medium capitalize">{syncStatus}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setActiveTab('print')}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'print'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Print Room
+            </button>
+            <button
+              onClick={() => setActiveTab('preshift')}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'preshift'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              PreShift Setup
+            </button>
+            <button
+              onClick={() => setActiveTab('movement')}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'movement'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Live Movement
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {activeTab === 'print' && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Shift Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-5 gap-4">
+                  {routes.map(route => {
+                    const stats = getRouteStats()
+                    return (
+                      <div key={route} className="text-center">
+                        <div className={`${routeColors[route]} text-white rounded-lg p-3 mb-2`}>
+                          <div className="text-2xl font-bold">{stats[route]}</div>
+                        </div>
+                        <div className="text-sm font-medium">{route}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {[1, 2, 3, 4].map(batch => (
+              <Card key={batch}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Batch {batch}</CardTitle>
+                    <Button onClick={() => addPrintRoomTruck(loadingDoors[0], batch)} size="sm">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Truck
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {getPrintRoomTrucksByBatch(batch).map(truck => (
+                      <div key={truck.id} className="border rounded-lg p-4">
+                        {editingTruck === truck.id ? (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-3 gap-4">
+                              <div>
+                                <Label>Truck Number</Label>
+                                <Input
+                                  value={truck.truckNumber}
+                                  onChange={(e) => updatePrintRoomTruck(truck.id, { truckNumber: e.target.value })}
+                                  placeholder="151-1"
+                                />
+                              </div>
+                              <div>
+                                <Label>Door</Label>
+                                <Select value={truck.door} onValueChange={(value) => updatePrintRoomTruck(truck.id, { door: value })}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {loadingDoors.map(door => (
+                                      <SelectItem key={door} value={door}>{door}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label>Route</Label>
+                                <Select value={truck.route} onValueChange={(value: Route) => updatePrintRoomTruck(truck.id, { route: value })}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {routes.map(route => (
+                                      <SelectItem key={route} value={route}>{route}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label>Pods</Label>
+                                <Input
+                                  type="number"
+                                  value={truck.pods}
+                                  onChange={(e) => updatePrintRoomTruck(truck.id, { pods: parseInt(e.target.value) || 0 })}
+                                />
+                              </div>
+                              <div>
+                                <Label>Pallets</Label>
+                                <Input
+                                  type="number"
+                                  value={truck.pallets}
+                                  onChange={(e) => updatePrintRoomTruck(truck.id, { pallets: parseInt(e.target.value) || 0 })}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <Label>Notes</Label>
+                              <Textarea
+                                value={truck.notes}
+                                onChange={(e) => updatePrintRoomTruck(truck.id, { notes: e.target.value })}
+                                rows={2}
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button onClick={() => setEditingTruck(null)} size="sm">
+                                <Save className="w-4 h-4 mr-2" />
+                                Save
+                              </Button>
+                              <Button onClick={() => deletePrintRoomTruck(truck.id)} variant="destructive" size="sm">
+                                <Trash className="w-4 h-4 mr-2" />
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className={`${routeColors[truck.route]} text-white rounded px-3 py-1 font-bold`}>
+                                {truck.truckNumber || 'New'}
+                              </div>
+                              <div className="text-sm">Door {truck.door}</div>
+                              <div className="text-sm">{truck.route}</div>
+                              <div className="text-sm">Pods: {truck.pods}</div>
+                              <div className="text-sm">Pallets: {truck.pallets}</div>
+                            </div>
+                            <Button onClick={() => setEditingTruck(truck.id)} variant="outline" size="sm">
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'preshift' && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Van & Semi Registry</CardTitle>
+                  <Button onClick={() => setNewVanSemiForm(!newVanSemiForm)} size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Exception
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {newVanSemiForm && (
+                  <div className="mb-4 p-4 border rounded-lg">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="col-span-2">
+                        <Label>Truck Number</Label>
+                        <Input id="newVanSemiNumber" placeholder="Enter number" />
+                      </div>
+                      <div>
+                        <Label>Type</Label>
+                        <Select onValueChange={(value: 'Van' | 'Semi') => {
+                          const input = document.getElementById('newVanSemiNumber') as HTMLInputElement
+                          if (input && input.value) {
+                            addVanSemiNumber(input.value, value)
+                            input.value = ''
+                            setNewVanSemiForm(false)
+                          }
+                        }}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Van">Van</SelectItem>
+                            <SelectItem value="Semi">Semi</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-4 gap-3">
+                  {vanSemiNumbers.map(vs => (
+                    <div key={vs.id} className="border rounded-lg p-3 flex items-center justify-between">
+                      <div>
+                        <div className="font-bold">{vs.number}</div>
+                        <div className="text-xs text-gray-600">{vs.type}</div>
+                      </div>
+                      <Button onClick={() => deleteVanSemiNumber(vs.id)} variant="ghost" size="sm">
+                        <Trash className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Driver & Equipment Database</CardTitle>
+                  <Button onClick={() => setNewDriverForm(true)} size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Driver
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {newDriverForm && (
+                  <div className="mb-4">
+                    <Button onClick={addDriver} className="w-full">
+                      Create New Driver Profile
+                    </Button>
+                  </div>
+                )}
+                <div className="space-y-4">
+                  {drivers.map(driver => (
+                    <div key={driver.id} className="border rounded-lg p-4">
+                      {editingDriver === driver.id ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label>Name</Label>
+                              <Input
+                                value={driver.name}
+                                onChange={(e) => updateDriver(driver.id, { name: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <Label>Phone</Label>
+                              <Input
+                                value={driver.phone}
+                                onChange={(e) => updateDriver(driver.id, { phone: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label>Tractor Number</Label>
+                            <Input
+                              value={driver.tractorNumber}
+                              onChange={(e) => updateDriver(driver.id, { tractorNumber: e.target.value })}
+                            />
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label>Trailer 1</Label>
+                              <Input
+                                value={driver.trailer1}
+                                onChange={(e) => updateDriver(driver.id, { trailer1: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <Label>Trailer 2</Label>
+                              <Input
+                                value={driver.trailer2}
+                                onChange={(e) => updateDriver(driver.id, { trailer2: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <Label>Trailer 3</Label>
+                              <Input
+                                value={driver.trailer3}
+                                onChange={(e) => updateDriver(driver.id, { trailer3: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button onClick={() => setEditingDriver(null)} size="sm">
+                              <Save className="w-4 h-4 mr-2" />
+                              Save
+                            </Button>
+                            <Button onClick={() => deleteDriver(driver.id)} variant="destructive" size="sm">
+                              <Trash className="w-4 h-4 mr-2" />
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-bold">{driver.name || 'New Driver'}</div>
+                            <div className="text-sm text-gray-600">
+                              Tractor: {driver.tractorNumber} | Trailers: {[driver.trailer1, driver.trailer2, driver.trailer3].filter(Boolean).join(', ')}
+                            </div>
+                          </div>
+                          <Button onClick={() => setEditingDriver(driver.id)} variant="outline" size="sm">
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Staging Doors (18-28)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4">
+                  {stagingDoors.map(door => {
+                    const doorTrucks = preShiftTrucks.filter(t => t.stagingDoor === door).sort((a, b) => a.stagingPosition - b.stagingPosition)
+                    return (
+                      <div key={door} className="border-2 rounded-lg p-4">
+                        <div className="text-center font-bold mb-3">Door {door}</div>
+                        <div className="space-y-2">
+                          {[1, 2, 3, 4].map(position => {
+                            const truck = doorTrucks.find(t => t.stagingPosition === position)
+                            return (
+                              <div key={position} className="border rounded p-2">
+                                <div className="text-xs text-gray-600 mb-1">Pos {position}</div>
+                                {truck ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={truck.truckNumber}
+                                      onChange={(e) => updatePreShiftTruck(truck.id, { truckNumber: e.target.value })}
+                                      placeholder="Truck #"
+                                      className="text-sm"
+                                    />
+                                    <Button onClick={() => deletePreShiftTruck(truck.id)} variant="ghost" size="sm">
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Button onClick={() => addPreShiftTruck(door, position)} variant="outline" size="sm" className="w-full">
+                                    <Plus className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'movement' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              {loadingDoors.map(door => {
+                const doorTrucks = Object.values(movementTrucks).filter(t => t.door === door && !t.ignored)
+                const currentDoorStatus = doorStatuses[door] || 'Loading'
+                return (
+                  <Card key={door}>
+                    <CardHeader className="py-3">
+                      <div className="space-y-2">
+                        <CardTitle className="text-xl">Door {door}</CardTitle>
+                        <Select value={currentDoorStatus} onValueChange={(value: DoorStatus) => updateDoorStatus(door, value)}>
+                          <SelectTrigger className={`h-9 ${doorStatusColors[currentDoorStatus]} text-white`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {doorStatusOptions.map(status => (
+                              <SelectItem key={status} value={status}>{status}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {doorTrucks.map(truck => (
+                          <div key={truck.truckNumber} className="border rounded-lg p-3">
+                            <div className={`${routeColors[truck.route]} text-white rounded px-2 py-1 text-sm font-bold mb-2`}>
+                              {truck.truckNumber}
+                              {truck.trailerNumber && <span className="ml-1">({truck.trailerNumber})</span>}
+                            </div>
+                            <div className="text-xs space-y-1">
+                              <div>Type: {truck.truckType}</div>
+                              <div>Route: {truck.route}</div>
+                              <div>Pods: {truck.pods} | Pallets: {truck.pallets}</div>
+                            </div>
+                            <Select value={truck.status} onValueChange={(value: TruckStatus) => updateMovementTruck(truck.truckNumber, { status: value })}>
+                              <SelectTrigger className="h-8 mt-2 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {truckStatuses.map(status => (
+                                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
