@@ -383,7 +383,7 @@ export default function TruckManagementSystem() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', color: '#111827' }}>
       {/* Header */}
       <div style={{ 
         backgroundColor: 'white', 
@@ -398,8 +398,8 @@ export default function TruckManagementSystem() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <Truck style={{ width: '2rem', height: '2rem', color: '#2563eb' }} />
               <div>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827' }}>Truck Management System</h1>
-                <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Real-time synchronized warehouse operations</p>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Truck Management System</h1>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: 0 }}>Real-time synchronized warehouse operations</p>
               </div>
             </div>
             <div style={{
@@ -439,7 +439,8 @@ export default function TruckManagementSystem() {
                   backgroundColor: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
-                  transition: 'color 0.2s'
+                  transition: 'color 0.2s',
+                  fontSize: '1rem'
                 }}
               >
                 {tab === 'print' ? 'Print Room' : tab === 'preshift' ? 'PreShift Setup' : 'Live Movement'}
@@ -455,7 +456,7 @@ export default function TruckManagementSystem() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {/* Shift Summary */}
             <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem' }}>Shift Summary</h2>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Shift Summary</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
                 {routes.map(route => {
                   const stats = getRouteStats()
@@ -470,7 +471,7 @@ export default function TruckManagementSystem() {
                       }}>
                         <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{stats[route]}</div>
                       </div>
-                      <div style={{ fontSize: '0.875rem', fontWeight: '500' }}>{route}</div>
+                      <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>{route}</div>
                     </div>
                   )
                 })}
@@ -481,7 +482,7 @@ export default function TruckManagementSystem() {
             {[1, 2, 3, 4].map(batch => (
               <div key={batch} style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Batch {batch}</h2>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Batch {batch}</h2>
                   <button
                     onClick={() => addPrintRoomTruck(loadingDoors[0], batch)}
                     style={{
@@ -509,7 +510,7 @@ export default function TruckManagementSystem() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                             <div>
-                              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Truck Number</label>
+                              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Truck Number</label>
                               <input
                                 type="text"
                                 value={truck.truckNumber}
@@ -520,12 +521,14 @@ export default function TruckManagementSystem() {
                                   padding: '0.5rem',
                                   border: '1px solid #d1d5db',
                                   borderRadius: '0.375rem',
-                                  fontSize: '0.875rem'
+                                  fontSize: '0.875rem',
+                                  color: '#111827',
+                                  backgroundColor: 'white'
                                 }}
                               />
                             </div>
                             <div>
-                              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Door</label>
+                              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Door</label>
                               <select
                                 value={truck.door}
                                 onChange={(e) => updatePrintRoomTruck(truck.id, { door: e.target.value })}
@@ -534,7 +537,9 @@ export default function TruckManagementSystem() {
                                   padding: '0.5rem',
                                   border: '1px solid #d1d5db',
                                   borderRadius: '0.375rem',
-                                  fontSize: '0.875rem'
+                                  fontSize: '0.875rem',
+                                  color: '#111827',
+                                  backgroundColor: 'white'
                                 }}
                               >
                                 {loadingDoors.map(door => (
@@ -543,7 +548,7 @@ export default function TruckManagementSystem() {
                               </select>
                             </div>
                             <div>
-                              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Route</label>
+                              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Route</label>
                               <select
                                 value={truck.route}
                                 onChange={(e) => updatePrintRoomTruck(truck.id, { route: e.target.value as Route })}
@@ -552,7 +557,9 @@ export default function TruckManagementSystem() {
                                   padding: '0.5rem',
                                   border: '1px solid #d1d5db',
                                   borderRadius: '0.375rem',
-                                  fontSize: '0.875rem'
+                                  fontSize: '0.875rem',
+                                  color: '#111827',
+                                  backgroundColor: 'white'
                                 }}
                               >
                                 {routes.map(route => (
@@ -563,7 +570,7 @@ export default function TruckManagementSystem() {
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
                             <div>
-                              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Pods</label>
+                              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Pods</label>
                               <input
                                 type="number"
                                 value={truck.pods}
@@ -573,12 +580,14 @@ export default function TruckManagementSystem() {
                                   padding: '0.5rem',
                                   border: '1px solid #d1d5db',
                                   borderRadius: '0.375rem',
-                                  fontSize: '0.875rem'
+                                  fontSize: '0.875rem',
+                                  color: '#111827',
+                                  backgroundColor: 'white'
                                 }}
                               />
                             </div>
                             <div>
-                              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Pallets</label>
+                              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Pallets</label>
                               <input
                                 type="number"
                                 value={truck.pallets}
@@ -588,13 +597,15 @@ export default function TruckManagementSystem() {
                                   padding: '0.5rem',
                                   border: '1px solid #d1d5db',
                                   borderRadius: '0.375rem',
-                                  fontSize: '0.875rem'
+                                  fontSize: '0.875rem',
+                                  color: '#111827',
+                                  backgroundColor: 'white'
                                 }}
                               />
                             </div>
                           </div>
                           <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Notes</label>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Notes</label>
                             <textarea
                               value={truck.notes}
                               onChange={(e) => updatePrintRoomTruck(truck.id, { notes: e.target.value })}
@@ -605,7 +616,9 @@ export default function TruckManagementSystem() {
                                 border: '1px solid #d1d5db',
                                 borderRadius: '0.375rem',
                                 fontSize: '0.875rem',
-                                resize: 'vertical'
+                                resize: 'vertical',
+                                color: '#111827',
+                                backgroundColor: 'white'
                               }}
                             />
                           </div>
@@ -672,7 +685,8 @@ export default function TruckManagementSystem() {
                               border: '1px solid #d1d5db',
                               padding: '0.5rem',
                               borderRadius: '0.375rem',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              color: '#6b7280'
                             }}
                           >
                             <Edit style={{ width: '1rem', height: '1rem' }} />
@@ -692,7 +706,7 @@ export default function TruckManagementSystem() {
             {/* Van & Semi Registry */}
             <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Van & Semi Registry</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Van & Semi Registry</h2>
                 <button
                   onClick={() => setNewVanSemiForm(!newVanSemiForm)}
                   style={{
@@ -716,7 +730,7 @@ export default function TruckManagementSystem() {
                 <div style={{ marginBottom: '1rem', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', backgroundColor: '#f9fafb' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Truck Number</label>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Truck Number</label>
                       <input
                         id="newVanSemiNumber"
                         type="text"
@@ -726,12 +740,14 @@ export default function TruckManagementSystem() {
                           padding: '0.5rem',
                           border: '1px solid #d1d5db',
                           borderRadius: '0.375rem',
-                          fontSize: '0.875rem'
+                          fontSize: '0.875rem',
+                          color: '#111827',
+                          backgroundColor: 'white'
                         }}
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Type</label>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Type</label>
                       <select
                         onChange={(e) => {
                           const input = document.getElementById('newVanSemiNumber') as HTMLInputElement
@@ -746,7 +762,9 @@ export default function TruckManagementSystem() {
                           padding: '0.5rem',
                           border: '1px solid #d1d5db',
                           borderRadius: '0.375rem',
-                          fontSize: '0.875rem'
+                          fontSize: '0.875rem',
+                          color: '#111827',
+                          backgroundColor: 'white'
                         }}
                       >
                         <option value="">Select</option>
@@ -778,7 +796,7 @@ export default function TruckManagementSystem() {
             {/* Driver Database */}
             <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Driver & Equipment Database</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Driver & Equipment Database</h2>
                 <button
                   onClick={() => setNewDriverForm(true)}
                   style={{
@@ -824,7 +842,7 @@ export default function TruckManagementSystem() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
                           <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Name</label>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Name</label>
                             <input
                               type="text"
                               value={driver.name}
@@ -834,12 +852,14 @@ export default function TruckManagementSystem() {
                                 padding: '0.5rem',
                                 border: '1px solid #d1d5db',
                                 borderRadius: '0.375rem',
-                                fontSize: '0.875rem'
+                                fontSize: '0.875rem',
+                                color: '#111827',
+                                backgroundColor: 'white'
                               }}
                             />
                           </div>
                           <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Phone</label>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Phone</label>
                             <input
                               type="text"
                               value={driver.phone}
@@ -849,13 +869,15 @@ export default function TruckManagementSystem() {
                                 padding: '0.5rem',
                                 border: '1px solid #d1d5db',
                                 borderRadius: '0.375rem',
-                                fontSize: '0.875rem'
+                                fontSize: '0.875rem',
+                                color: '#111827',
+                                backgroundColor: 'white'
                               }}
                             />
                           </div>
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Tractor Number</label>
+                          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Tractor Number</label>
                           <input
                             type="text"
                             value={driver.tractorNumber}
@@ -865,13 +887,15 @@ export default function TruckManagementSystem() {
                               padding: '0.5rem',
                               border: '1px solid #d1d5db',
                               borderRadius: '0.375rem',
-                              fontSize: '0.875rem'
+                              fontSize: '0.875rem',
+                              color: '#111827',
+                              backgroundColor: 'white'
                             }}
                           />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
                           <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Trailer 1</label>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 1</label>
                             <input
                               type="text"
                               value={driver.trailer1}
@@ -881,12 +905,14 @@ export default function TruckManagementSystem() {
                                 padding: '0.5rem',
                                 border: '1px solid #d1d5db',
                                 borderRadius: '0.375rem',
-                                fontSize: '0.875rem'
+                                fontSize: '0.875rem',
+                                color: '#111827',
+                                backgroundColor: 'white'
                               }}
                             />
                           </div>
                           <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Trailer 2</label>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 2</label>
                             <input
                               type="text"
                               value={driver.trailer2}
@@ -896,12 +922,14 @@ export default function TruckManagementSystem() {
                                 padding: '0.5rem',
                                 border: '1px solid #d1d5db',
                                 borderRadius: '0.375rem',
-                                fontSize: '0.875rem'
+                                fontSize: '0.875rem',
+                                color: '#111827',
+                                backgroundColor: 'white'
                               }}
                             />
                           </div>
                           <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>Trailer 3</label>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 3</label>
                             <input
                               type="text"
                               value={driver.trailer3}
@@ -911,7 +939,9 @@ export default function TruckManagementSystem() {
                                 padding: '0.5rem',
                                 border: '1px solid #d1d5db',
                                 borderRadius: '0.375rem',
-                                fontSize: '0.875rem'
+                                fontSize: '0.875rem',
+                                color: '#111827',
+                                backgroundColor: 'white'
                               }}
                             />
                           </div>
@@ -970,7 +1000,8 @@ export default function TruckManagementSystem() {
                             border: '1px solid #d1d5db',
                             padding: '0.5rem',
                             borderRadius: '0.375rem',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            color: '#6b7280'
                           }}
                         >
                           <Edit style={{ width: '1rem', height: '1rem' }} />
@@ -984,7 +1015,7 @@ export default function TruckManagementSystem() {
 
             {/* Staging Doors */}
             <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem' }}>Staging Doors (18-28)</h2>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Staging Doors (18-28)</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                 {stagingDoors.map(door => {
                   const doorTrucks = preShiftTrucks.filter(t => t.stagingDoor === door).sort((a, b) => a.stagingPosition - b.stagingPosition)
@@ -1009,7 +1040,9 @@ export default function TruckManagementSystem() {
                                       padding: '0.375rem',
                                       border: '1px solid #d1d5db',
                                       borderRadius: '0.25rem',
-                                      fontSize: '0.875rem'
+                                      fontSize: '0.875rem',
+                                      color: '#111827',
+                                      backgroundColor: 'white'
                                     }}
                                   />
                                   <button
@@ -1031,7 +1064,8 @@ export default function TruckManagementSystem() {
                                     cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center'
+                                    justifyContent: 'center',
+                                    color: '#6b7280'
                                   }}
                                 >
                                   <Plus style={{ width: '1rem', height: '1rem' }} />
@@ -1057,7 +1091,7 @@ export default function TruckManagementSystem() {
               return (
                 <div key={door} style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '2px solid #e5e7eb' }}>
                   <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb' }}>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Door {door}</h3>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#111827', margin: '0 0 0.5rem 0' }}>Door {door}</h3>
                     <select
                       value={currentDoorStatus}
                       onChange={(e) => updateDoorStatus(door, e.target.value as DoorStatus)}
@@ -1075,7 +1109,7 @@ export default function TruckManagementSystem() {
                       }}
                     >
                       {doorStatusOptions.map(status => (
-                        <option key={status} value={status}>{status}</option>
+                        <option key={status} value={status} style={{ color: '#111827', backgroundColor: 'white' }}>{status}</option>
                       ))}
                     </select>
                   </div>
@@ -1116,7 +1150,7 @@ export default function TruckManagementSystem() {
                           }}
                         >
                           {truckStatuses.map(status => (
-                            <option key={status} value={status}>{status}</option>
+                            <option key={status} value={status} style={{ color: '#111827', backgroundColor: 'white' }}>{status}</option>
                           ))}
                         </select>
                       </div>
