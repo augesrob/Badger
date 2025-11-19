@@ -106,6 +106,23 @@ const doorStatusColors: Record<DoorStatus, string> = {
   'Done For Night': 'bg-red-600'
 }
 
+const statusColors: Record<TruckStatus, string> = {
+  'On Route': 'bg-blue-500',
+  'In Door': 'bg-green-500',
+  'Put Away': 'bg-gray-500',
+  'In Front': 'bg-yellow-500',
+  'Ready': 'bg-cyan-500',
+  'In Back': 'bg-indigo-500',
+  'The Rock': 'bg-stone-500',
+  'Yard': 'bg-lime-500',
+  'Missing': 'bg-red-500',
+  'Doors 8-11': 'bg-pink-500',
+  'Doors 12A-15B': 'bg-teal-500',
+  'End': 'bg-violet-500',
+  'Gap': 'bg-amber-500',
+  'Transfer': 'bg-fuchsia-500'
+}
+
 const STORAGE_KEY = 'badger-truck-mover-data'
 
 export default function TruckManagementSystem() {
@@ -551,10 +568,10 @@ export default function TruckManagementSystem() {
                               <div className={`${routeColors[truck.route]} text-white rounded px-3 py-1 font-bold`}>
                                 {truck.truckNumber || 'New'}
                               </div>
-                              <div className="text-sm">Door {truck.door}</div>
-                              <div className="text-sm">{truck.route}</div>
-                              <div className="text-sm">Pods: {truck.pods}</div>
-                              <div className="text-sm">Pallets: {truck.pallets}</div>
+                              <div className="text-sm text-gray-600">Door {truck.door}</div>
+                              <div className="text-sm text-gray-600">{truck.route}</div>
+                              <div className="text-sm text-gray-600">Pods: {truck.pods}</div>
+                              <div className="text-sm text-gray-600">Pallets: {truck.pallets}</div>
                             </div>
                             <Button onClick={() => setEditingTruck(truck.id)} variant="outline" size="sm">
                               <Edit className="w-4 h-4" />
@@ -584,7 +601,7 @@ export default function TruckManagementSystem() {
               </CardHeader>
               <CardContent>
                 {newVanSemiForm && (
-                  <div className="mb-4 p-4 border rounded-lg">
+                  <div className="mb-4 p-4 border rounded-lg bg-gray-50">
                     <div className="grid grid-cols-3 gap-4">
                       <div className="col-span-2">
                         <Label>Truck Number</Label>
@@ -614,13 +631,13 @@ export default function TruckManagementSystem() {
                 )}
                 <div className="grid grid-cols-4 gap-3">
                   {vanSemiNumbers.map(vs => (
-                    <div key={vs.id} className="border rounded-lg p-3 flex items-center justify-between">
+                    <div key={vs.id} className="border rounded-lg p-3 flex items-center justify-between bg-white">
                       <div>
-                        <div className="font-bold">{vs.number}</div>
-                        <div className="text-xs text-gray-600">{vs.type}</div>
+                        <div className="font-bold text-gray-900">{vs.number}</div>
+                        <div className={`text-xs font-medium ${vs.type === 'Van' ? 'text-blue-600' : 'text-purple-600'}`}>{vs.type}</div>
                       </div>
                       <Button onClick={() => deleteVanSemiNumber(vs.id)} variant="ghost" size="sm">
-                        <Trash className="w-4 h-4" />
+                        <Trash className="w-4 h-4 text-red-500" />
                       </Button>
                     </div>
                   ))}
@@ -641,14 +658,14 @@ export default function TruckManagementSystem() {
               <CardContent>
                 {newDriverForm && (
                   <div className="mb-4">
-                    <Button onClick={addDriver} className="w-full">
+                    <Button onClick={addDriver} className="w-full bg-blue-600 hover:bg-blue-700">
                       Create New Driver Profile
                     </Button>
                   </div>
                 )}
                 <div className="space-y-4">
                   {drivers.map(driver => (
-                    <div key={driver.id} className="border rounded-lg p-4">
+                    <div key={driver.id} className="border rounded-lg p-4 bg-white">
                       {editingDriver === driver.id ? (
                         <div className="space-y-4">
                           <div className="grid grid-cols-2 gap-4">
@@ -711,7 +728,7 @@ export default function TruckManagementSystem() {
                       ) : (
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-bold">{driver.name || 'New Driver'}</div>
+                            <div className="font-bold text-gray-900">{driver.name || 'New Driver'}</div>
                             <div className="text-sm text-gray-600">
                               Tractor: {driver.tractorNumber} | Trailers: {[driver.trailer1, driver.trailer2, driver.trailer3].filter(Boolean).join(', ')}
                             </div>
@@ -736,14 +753,14 @@ export default function TruckManagementSystem() {
                   {stagingDoors.map(door => {
                     const doorTrucks = preShiftTrucks.filter(t => t.stagingDoor === door).sort((a, b) => a.stagingPosition - b.stagingPosition)
                     return (
-                      <div key={door} className="border-2 rounded-lg p-4">
-                        <div className="text-center font-bold mb-3">Door {door}</div>
+                      <div key={door} className="border-2 border-gray-300 rounded-lg p-4 bg-white">
+                        <div className="text-center font-bold text-lg mb-3 text-gray-900">Door {door}</div>
                         <div className="space-y-2">
                           {[1, 2, 3, 4].map(position => {
                             const truck = doorTrucks.find(t => t.stagingPosition === position)
                             return (
-                              <div key={position} className="border rounded p-2">
-                                <div className="text-xs text-gray-600 mb-1">Pos {position}</div>
+                              <div key={position} className="border border-gray-200 rounded p-2 bg-gray-50">
+                                <div className="text-xs text-gray-600 mb-1 font-medium">Position {position}</div>
                                 {truck ? (
                                   <div className="flex items-center gap-2">
                                     <Input
@@ -753,7 +770,7 @@ export default function TruckManagementSystem() {
                                       className="text-sm"
                                     />
                                     <Button onClick={() => deletePreShiftTruck(truck.id)} variant="ghost" size="sm">
-                                      <X className="w-4 h-4" />
+                                      <X className="w-4 h-4 text-red-500" />
                                     </Button>
                                   </div>
                                 ) : (
@@ -781,12 +798,12 @@ export default function TruckManagementSystem() {
                 const doorTrucks = Object.values(movementTrucks).filter(t => t.door === door && !t.ignored)
                 const currentDoorStatus = doorStatuses[door] || 'Loading'
                 return (
-                  <Card key={door}>
-                    <CardHeader className="py-3">
+                  <Card key={door} className="border-2">
+                    <CardHeader className="py-3 bg-gray-50">
                       <div className="space-y-2">
-                        <CardTitle className="text-xl">Door {door}</CardTitle>
+                        <CardTitle className="text-xl font-bold">Door {door}</CardTitle>
                         <Select value={currentDoorStatus} onValueChange={(value: DoorStatus) => updateDoorStatus(door, value)}>
-                          <SelectTrigger className={`h-9 ${doorStatusColors[currentDoorStatus]} text-white`}>
+                          <SelectTrigger className={`h-10 ${doorStatusColors[currentDoorStatus]} text-white font-bold border-0`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -797,21 +814,21 @@ export default function TruckManagementSystem() {
                         </Select>
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-4">
                       <div className="space-y-3">
                         {doorTrucks.map(truck => (
-                          <div key={truck.truckNumber} className="border rounded-lg p-3">
-                            <div className={`${routeColors[truck.route]} text-white rounded px-2 py-1 text-sm font-bold mb-2`}>
+                          <div key={truck.truckNumber} className="border-2 rounded-lg p-3 bg-white">
+                            <div className={`${routeColors[truck.route]} text-white rounded px-3 py-2 text-sm font-bold mb-2`}>
                               {truck.truckNumber}
                               {truck.trailerNumber && <span className="ml-1">({truck.trailerNumber})</span>}
                             </div>
-                            <div className="text-xs space-y-1">
-                              <div>Type: {truck.truckType}</div>
+                            <div className="text-xs space-y-1 mb-2 text-gray-700">
+                              <div className="font-medium">Type: {truck.truckType}</div>
                               <div>Route: {truck.route}</div>
                               <div>Pods: {truck.pods} | Pallets: {truck.pallets}</div>
                             </div>
                             <Select value={truck.status} onValueChange={(value: TruckStatus) => updateMovementTruck(truck.truckNumber, { status: value })}>
-                              <SelectTrigger className="h-8 mt-2 text-xs">
+                              <SelectTrigger className={`h-9 text-xs font-medium ${statusColors[truck.status]} text-white border-0`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
