@@ -59,11 +59,11 @@ const routeColors: Record<Route, string> = {
 export default function PreShiftPage() {
   const [trucks, setTrucks] = useState<TruckData[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
-  const [editingTruck, setEditingTruck] = useState<string | null>(null)
   const [editingDriver, setEditingDriver] = useState<string | null>(null)
   const [newDriverForm, setNewDriverForm] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('syncing')
+  const [expandedTruck, setExpandedTruck] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -135,23 +135,36 @@ export default function PreShiftPage() {
     setDrivers(drivers.filter(d => d.id !== id))
   }
 
-  const addTruckToStaging = (door: string) => {
-    const doorTrucks = trucks.filter(t => t.stagingDoor === door)
-    const newTruck: TruckData = {
-      id: Date.now().toString(),
-      truckNumber: '',
-      door: loadingDoors[0],
-      route: '1-Fond Du Lac',
-      pods: 0,
-      pallets: 0,
-      notes: '',
-      batch: 1,
-      truckType: 'Van',
-      stagingDoor: door,
-      stagingPosition: doorTrucks.length + 1
+  const updateTruckNumber = (door: string, position: number, truckNumber: string) => {
+    const existingTruck = trucks.find(t => t.stagingDoor === door && t.stagingPosition === position)
+    
+    if (existingTruck) {
+      if (truckNumber.trim() === '') {
+        // Delete truck if number is cleared
+        setTrucks(trucks.filter(t => t.id !== existingTruck.id))
+      } else {
+        // Update existing truck
+        setTrucks(trucks.map(t => 
+          t.id === existingTruck.id ? { ...t, truckNumber } : t
+        ))
+      }
+    } else if (truckNumber.trim() !== '') {
+      // Create new truck
+      const newTruck: TruckData = {
+        id: Date.now().toString(),
+        truckNumber,
+        door: loadingDoors[0],
+        route: '1-Fond Du Lac',
+        pods: 0,
+        pallets: 0,
+        notes: '',
+        batch: 1,
+        truckType: 'Van',
+        stagingDoor: door,
+        stagingPosition: position
+      }
+      setTrucks([...trucks, newTruck])
     }
-    setTrucks([...trucks, newTruck])
-    setEditingTruck(newTruck.id)
   }
 
   const updateTruck = (id: string, updates: Partial<TruckData>) => {
@@ -160,6 +173,7 @@ export default function PreShiftPage() {
 
   const deleteTruck = (id: string) => {
     setTrucks(trucks.filter(t => t.id !== id))
+    setExpandedTruck(null)
   }
 
   return (
@@ -396,31 +410,107 @@ export default function PreShiftPage() {
                     <div className="space-y-2">
                       {[1, 2, 3, 4].map(position => {
                         const truck = doorTrucks.find(t => t.stagingPosition === position)
+                        const isExpanded = expandedTruck === truck?.id
+                        
                         return (
                           <div key={position} className="border rounded p-2 bg-white">
                             <div className="text-xs text-gray-500 mb-1">
                               Position {position} {position === 1 ? '(Front)' : position === 4 ? '(Back)' : ''}
                             </div>
+                            
                             {truck ? (
-                              <div className={`${routeColors[truck.route]} text-white rounded p-2 text-center text-sm font-bold`}>
-                                {truck.truckNumber || 'New'} - {truck.truckType}
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={truck.truckNumber}
+                                    onChange={(e) => updateTruckNumber(door, position, e.target.value)}
+                                    placeholder="Truck #"
+                                    className="flex-1 bg-white text-gray-900 border-gray-300 font-bold"
+                                  />
+                                  <Button
+                                    onClick={() => setExpandedTruck(isExpanded ? null : truck.id)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    size="sm"
+                                  >
+                                    {isExpanded ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                                  </Button>
+                                </div>
+                                
+                                {isExpanded && (
+                                  <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded">
+                                    <div>
+                                      <Label className="text-gray-700 text-xs">Route</Label>
+                                      <Select
+                                        value={truck.route}
+                                        onValueChange={(value: Route) => updateTruck(truck.id, { route: value })}
+                                      >
+                                        <SelectTrigger className="bg-white text-gray-900 border-gray-300 h-8 text-sm">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white">
+                                          {routes.map(route => (
+                                            <SelectItem key={route} value={route}>{route}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    
+                                    <div>
+                                      <Label className="text-gray-700 text-xs">Truck Type</Label>
+                                      <Select
+                                        value={truck.truckType}
+                                        onValueChange={(value: TruckType) => updateTruck(truck.id, { truckType: value })}
+                                      >
+                                        <SelectTrigger className="bg-white text-gray-900 border-gray-300 h-8 text-sm">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white">
+                                          {truckTypes.map(type => (
+                                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    
+                                    <div>
+                                      <Label className="text-gray-700 text-xs">Notes</Label>
+                                      <Textarea
+                                        value={truck.notes}
+                                        onChange={(e) => updateTruck(truck.id, { notes: e.target.value })}
+                                        placeholder="Special instructions..."
+                                        rows={2}
+                                        className="bg-white text-gray-900 border-gray-300 text-sm"
+                                      />
+                                    </div>
+                                    
+                                    <Button
+                                      onClick={() => deleteTruck(truck.id)}
+                                      className="w-full bg-red-600 hover:bg-red-700 text-white"
+                                      size="sm"
+                                    >
+                                      <Trash className="w-4 h-4 mr-2" />
+                                      Remove Truck
+                                    </Button>
+                                  </div>
+                                )}
+                                
+                                {!isExpanded && (
+                                  <div className={`${routeColors[truck.route]} text-white rounded p-1 text-center text-xs font-medium mt-1`}>
+                                    {truck.route} - {truck.truckType}
+                                  </div>
+                                )}
                               </div>
                             ) : (
-                              <div className="bg-gray-100 rounded p-2 text-center text-sm text-gray-400">
-                                Empty
-                              </div>
+                              <Input
+                                placeholder="Enter truck #"
+                                onChange={(e) => updateTruckNumber(door, position, e.target.value)}
+                                className="bg-white text-gray-900 border-gray-300"
+                              />
                             )}
                           </div>
                         )
                       })}
                     </div>
-                    <Button 
-                      onClick={() => addTruckToStaging(door)}
-                      className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Truck
-                    </Button>
                   </div>
                 )
               })}
