@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Truck, Plus, Trash, Edit, Save, Menu, Home } from 'lucide-react'
+import { Truck, Plus, Trash, Edit, Save, Menu, Home, X, Users, Activity } from 'lucide-react'
 import Link from 'next/link'
 
 type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
@@ -46,6 +46,56 @@ const routeColors: Record<Route, string> = {
 export default function PrintRoomPage() {
   const [trucks, setTrucks] = useState<TruckData[]>([])
   const [editingTruck, setEditingTruck] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('connected')
+
+  // Load data from database
+  useEffect(() => {
+    loadTrucks()
+  }, [])
+
+  // Save to database whenever trucks change
+  useEffect(() => {
+    if (trucks.length > 0) {
+      saveTrucks()
+    }
+  }, [trucks])
+
+  const loadTrucks = async () => {
+    try {
+      setSyncStatus('syncing')
+      const response = await fetch('/api/trucks')
+      if (response.ok) {
+        const data = await response.json()
+        setTrucks(data.trucks || [])
+        setSyncStatus('connected')
+      } else {
+        setSyncStatus('error')
+      }
+    } catch (error) {
+      console.error('Error loading trucks:', error)
+      setSyncStatus('error')
+    }
+  }
+
+  const saveTrucks = async () => {
+    try {
+      setSyncStatus('syncing')
+      const response = await fetch('/api/trucks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trucks })
+      })
+      if (response.ok) {
+        setSyncStatus('connected')
+      } else {
+        setSyncStatus('error')
+      }
+    } catch (error) {
+      console.error('Error saving trucks:', error)
+      setSyncStatus('error')
+    }
+  }
 
   const addTruck = (door: string, batch: number = 1) => {
     const newTruck: TruckData = {
@@ -98,21 +148,79 @@ export default function PrintRoomPage() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Menu className="w-8 h-8 text-blue-600" />
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                {menuOpen ? (
+                  <X className="w-6 h-6 text-gray-700" />
+                ) : (
+                  <Menu className="w-6 h-6 text-gray-700" />
+                )}
+              </button>
+              <Truck className="w-8 h-8 text-blue-600" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Print Room</h1>
                 <p className="text-sm text-gray-500">Route planning and batch organization</p>
               </div>
             </div>
-            <Link href="/">
-              <Button variant="outline" size="sm">
-                <Home className="w-4 h-4 mr-2" />
-                Home
-              </Button>
-            </Link>
+            <div className="flex items-center gap-4">
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${
+                syncStatus === 'connected' ? 'bg-green-100 text-green-700' :
+                syncStatus === 'syncing' ? 'bg-yellow-100 text-yellow-700' :
+                'bg-red-100 text-red-700'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  syncStatus === 'connected' ? 'bg-green-500' :
+                  syncStatus === 'syncing' ? 'bg-yellow-500' :
+                  'bg-red-500'
+                }`} />
+                <span className="text-sm font-medium capitalize">{syncStatus}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Side Menu */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={() => setMenuOpen(false)}>
+          <div 
+            className="fixed left-0 top-0 h-full w-64 bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Navigation</h2>
+              <nav className="space-y-2">
+                <Link href="/" onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    <Home className="w-5 h-5 text-gray-600" />
+                    <span className="text-gray-700 font-medium">Home</span>
+                  </div>
+                </Link>
+                <Link href="/printroom" onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 transition-colors cursor-pointer">
+                    <Truck className="w-5 h-5 text-blue-600" />
+                    <span className="text-blue-700 font-medium">Print Room</span>
+                  </div>
+                </Link>
+                <Link href="/preshift" onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    <Users className="w-5 h-5 text-gray-600" />
+                    <span className="text-gray-700 font-medium">PreShift Setup</span>
+                  </div>
+                </Link>
+                <Link href="/movement" onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    <Activity className="w-5 h-5 text-gray-600" />
+                    <span className="text-gray-700 font-medium">Live Movement</span>
+                  </div>
+                </Link>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* Summary Statistics */}
@@ -160,7 +268,7 @@ export default function PrintRoomPage() {
                       <Button 
                         onClick={() => addTruck(door)}
                         variant="outline"
-                        className="w-full"
+                        className="w-full bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
                       >
                         <Plus className="w-4 h-4 mr-2" />
                         Add Truck
@@ -187,7 +295,11 @@ export default function PrintRoomPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-gray-900">Batch {batch}</CardTitle>
-                <Button onClick={() => addTruck(loadingDoors[0], batch)} size="sm">
+                <Button 
+                  onClick={() => addTruck(loadingDoors[0], batch)} 
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Truck
                 </Button>
@@ -206,7 +318,7 @@ export default function PrintRoomPage() {
                               value={truck.truckNumber}
                               onChange={(e) => updateTruck(truck.id, { truckNumber: e.target.value })}
                               placeholder="Enter truck #"
-                              className="bg-white text-gray-900"
+                              className="bg-white text-gray-900 border-gray-300"
                             />
                           </div>
                           <div>
@@ -215,7 +327,7 @@ export default function PrintRoomPage() {
                               value={truck.door}
                               onValueChange={(value) => updateTruck(truck.id, { door: value })}
                             >
-                              <SelectTrigger className="bg-white text-gray-900">
+                              <SelectTrigger className="bg-white text-gray-900 border-gray-300">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent className="bg-white">
@@ -231,7 +343,7 @@ export default function PrintRoomPage() {
                               value={truck.route}
                               onValueChange={(value: Route) => updateTruck(truck.id, { route: value })}
                             >
-                              <SelectTrigger className="bg-white text-gray-900">
+                              <SelectTrigger className="bg-white text-gray-900 border-gray-300">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent className="bg-white">
@@ -247,7 +359,7 @@ export default function PrintRoomPage() {
                               value={truck.truckType}
                               onValueChange={(value: TruckType) => updateTruck(truck.id, { truckType: value })}
                             >
-                              <SelectTrigger className="bg-white text-gray-900">
+                              <SelectTrigger className="bg-white text-gray-900 border-gray-300">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent className="bg-white">
@@ -266,6 +378,7 @@ export default function PrintRoomPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pods: Math.max(0, truck.pods - 1) })}
+                                className="bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
                               >
                                 -
                               </Button>
@@ -273,12 +386,13 @@ export default function PrintRoomPage() {
                                 type="number"
                                 value={truck.pods}
                                 onChange={(e) => updateTruck(truck.id, { pods: parseInt(e.target.value) || 0 })}
-                                className="text-center bg-white text-gray-900"
+                                className="text-center bg-white text-gray-900 border-gray-300"
                               />
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pods: truck.pods + 1 })}
+                                className="bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
                               >
                                 +
                               </Button>
@@ -291,6 +405,7 @@ export default function PrintRoomPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pallets: Math.max(0, truck.pallets - 1) })}
+                                className="bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
                               >
                                 -
                               </Button>
@@ -298,12 +413,13 @@ export default function PrintRoomPage() {
                                 type="number"
                                 value={truck.pallets}
                                 onChange={(e) => updateTruck(truck.id, { pallets: parseInt(e.target.value) || 0 })}
-                                className="text-center bg-white text-gray-900"
+                                className="text-center bg-white text-gray-900 border-gray-300"
                               />
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pallets: truck.pallets + 1 })}
+                                className="bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
                               >
                                 +
                               </Button>
@@ -317,15 +433,24 @@ export default function PrintRoomPage() {
                             onChange={(e) => updateTruck(truck.id, { notes: e.target.value })}
                             placeholder="Tray types, pallet specs, special instructions..."
                             rows={3}
-                            className="bg-white text-gray-900"
+                            className="bg-white text-gray-900 border-gray-300"
                           />
                         </div>
                         <div className="flex gap-2">
-                          <Button onClick={() => setEditingTruck(null)} size="sm">
+                          <Button 
+                            onClick={() => setEditingTruck(null)} 
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
                             <Save className="w-4 h-4 mr-2" />
                             Save
                           </Button>
-                          <Button onClick={() => deleteTruck(truck.id)} variant="destructive" size="sm">
+                          <Button 
+                            onClick={() => deleteTruck(truck.id)} 
+                            variant="destructive" 
+                            size="sm"
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                          >
                             <Trash className="w-4 h-4 mr-2" />
                             Delete
                           </Button>
@@ -348,7 +473,12 @@ export default function PrintRoomPage() {
                             <div className="text-sm text-gray-500 mt-2">{truck.notes}</div>
                           )}
                         </div>
-                        <Button onClick={() => setEditingTruck(truck.id)} variant="outline" size="sm">
+                        <Button 
+                          onClick={() => setEditingTruck(truck.id)} 
+                          variant="outline" 
+                          size="sm"
+                          className="bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+                        >
                           <Edit className="w-4 h-4" />
                         </Button>
                       </div>
