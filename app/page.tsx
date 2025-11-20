@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { Truck, Plus, Trash, Edit, Save, X } from 'lucide-react'
+import { Truck, Plus, Trash, Edit, Save } from 'lucide-react'
 
 type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
 type TruckType = 'Van' | 'Box Truck' | 'Semi Trailer' | 'Semi'
@@ -61,16 +61,6 @@ interface VanSemiNumber {
   type: 'Van' | 'Semi'
 }
 
-interface AppData {
-  printRoomTrucks: PrintRoomTruck[]
-  preShiftTrucks: PreShiftTruck[]
-  movementTrucks: Record<string, MovementTruck>
-  doorStatuses: Record<string, DoorStatus>
-  drivers: Driver[]
-  vanSemiNumbers: VanSemiNumber[]
-  lastSync: number
-}
-
 const loadingDoors = ['13A', '13B', '14A', '14B', '15A', '15B']
 const stagingDoors = Array.from({ length: 11 }, (_, i) => (18 + i).toString())
 const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledonia', '5-Chippewa Falls']
@@ -120,8 +110,6 @@ const getTruckStatusColor = (status: TruckStatus): string => {
   return colors[status]
 }
 
-const STORAGE_KEY = 'badger-truck-mover-data'
-
 export default function TruckManagementSystem() {
   const [activeTab, setActiveTab] = useState<'print' | 'preshift' | 'movement'>('print')
   const [printRoomTrucks, setPrintRoomTrucks] = useState<PrintRoomTruck[]>([])
@@ -134,85 +122,96 @@ export default function TruckManagementSystem() {
   const [editingDriver, setEditingDriver] = useState<string | null>(null)
   const [newDriverForm, setNewDriverForm] = useState(false)
   const [newVanSemiForm, setNewVanSemiForm] = useState(false)
-  const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing'>('connected')
+  const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('syncing')
   const [lastSync, setLastSync] = useState<number>(Date.now())
   const [isLoaded, setIsLoaded] = useState(false)
+  const [pendingSave, setPendingSave] = useState(false)
 
-  useEffect(() => {
-    const loadData = () => {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY)
-        if (stored) {
-          const data: AppData = JSON.parse(stored)
-          setPrintRoomTrucks(data.printRoomTrucks || [])
-          setPreShiftTrucks(data.preShiftTrucks || [])
-          setMovementTrucks(data.movementTrucks || {})
-          setDoorStatuses(data.doorStatuses || {})
-          setDrivers(data.drivers || [])
-          setVanSemiNumbers(data.vanSemiNumbers || [])
-          setLastSync(data.lastSync || Date.now())
-        } else {
-          const initialStatuses: Record<string, DoorStatus> = {}
-          loadingDoors.forEach(door => {
-            initialStatuses[door] = 'Loading'
-          })
-          setDoorStatuses(initialStatuses)
-        }
-      } catch (error) {
-        console.error('Error loading data:', error)
-      }
+  const loadFromServer = async () => {
+    try {
+      setSyncStatus('syncing')
+      const response = await fetch('/api/data')
+      if (!response.ok) throw new Error('Failed to load data')
+      
+      const data = await response.json()
+      setPrintRoomTrucks(data.printRoomTrucks || [])
+      setPreShiftTrucks(data.preShiftTrucks || [])
+      setMovementTrucks(data.movementTrucks || {})
+      setDoorStatuses(data.doorStatuses || {})
+      setDrivers(data.drivers || [])
+      setVanSemiNumbers(data.vanSemiNumbers || [])
+      setLastSync(data.lastSync || Date.now())
+      setSyncStatus('connected')
       setIsLoaded(true)
+    } catch (error) {
+      console.error('Error loading data:', error)
+      setSyncStatus('error')
+      
+      if (!isLoaded) {
+        const initialStatuses: Record<string, DoorStatus> = {}
+        loadingDoors.forEach(door => {
+          initialStatuses[door] = 'Loading'
+        })
+        setDoorStatuses(initialStatuses)
+        setIsLoaded(true)
+      }
     }
-    loadData()
-  }, [])
+  }
 
-  useEffect(() => {
-    if (!isLoaded) return
-    const saveData = () => {
-      try {
-        const data: AppData = {
+  const saveToServer = async () => {
+    if (pendingSave) return
+    
+    try {
+      setPendingSave(true)
+      setSyncStatus('syncing')
+      
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           printRoomTrucks,
           preShiftTrucks,
           movementTrucks,
           doorStatuses,
           drivers,
-          vanSemiNumbers,
-          lastSync: Date.now()
-        }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-        setLastSync(Date.now())
-      } catch (error) {
-        console.error('Error saving data:', error)
-      }
+          vanSemiNumbers
+        })
+      })
+      
+      if (!response.ok) throw new Error('Failed to save data')
+      
+      const result = await response.json()
+      setLastSync(result.lastSync)
+      setSyncStatus('connected')
+    } catch (error) {
+      console.error('Error saving data:', error)
+      setSyncStatus('error')
+    } finally {
+      setPendingSave(false)
     }
-    saveData()
+  }
+
+  useEffect(() => {
+    loadFromServer()
+  }, [])
+
+  useEffect(() => {
+    if (!isLoaded) return
+    
+    const timeoutId = setTimeout(() => {
+      saveToServer()
+    }, 1000)
+    
+    return () => clearTimeout(timeoutId)
   }, [printRoomTrucks, preShiftTrucks, movementTrucks, doorStatuses, drivers, vanSemiNumbers, isLoaded])
 
   useEffect(() => {
-    const checkForUpdates = () => {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY)
-        if (stored) {
-          const data: AppData = JSON.parse(stored)
-          if (data.lastSync > lastSync) {
-            setSyncStatus('syncing')
-            setPrintRoomTrucks(data.printRoomTrucks || [])
-            setPreShiftTrucks(data.preShiftTrucks || [])
-            setMovementTrucks(data.movementTrucks || {})
-            setDoorStatuses(data.doorStatuses || {})
-            setDrivers(data.drivers || [])
-            setVanSemiNumbers(data.vanSemiNumbers || [])
-            setLastSync(data.lastSync)
-            setTimeout(() => setSyncStatus('connected'), 500)
-          }
-        }
-      } catch (error) {
-        console.error('Error checking for updates:', error)
-      }
-    }
-    const interval = setInterval(checkForUpdates, 2000)
+    const interval = setInterval(() => {
+      loadFromServer()
+    }, 5000)
+    
     return () => clearInterval(interval)
-  }, [lastSync])
+  }, [])
 
   useEffect(() => {
     if (!isLoaded) return
@@ -384,7 +383,6 @@ export default function TruckManagementSystem() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', color: '#111827' }}>
-      {/* Header */}
       <div style={{ 
         backgroundColor: 'white', 
         borderBottom: '1px solid #e5e7eb', 
@@ -399,12 +397,12 @@ export default function TruckManagementSystem() {
               <Truck style={{ width: '2rem', height: '2rem', color: '#2563eb' }} />
               <div>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Truck Management System</h1>
-                <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: 0 }}>Real-time synchronized warehouse operations</p>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: 0 }}>Real-time sync with Vercel Blob (500MB free)</p>
               </div>
             </div>
             <div style={{
-              backgroundColor: syncStatus === 'connected' ? '#dcfce7' : '#fef3c7',
-              color: syncStatus === 'connected' ? '#15803d' : '#a16207',
+              backgroundColor: syncStatus === 'connected' ? '#dcfce7' : syncStatus === 'syncing' ? '#fef3c7' : '#fee2e2',
+              color: syncStatus === 'connected' ? '#15803d' : syncStatus === 'syncing' ? '#a16207' : '#991b1b',
               padding: '0.25rem 0.75rem',
               borderRadius: '9999px',
               display: 'flex',
@@ -415,7 +413,7 @@ export default function TruckManagementSystem() {
                 width: '0.5rem',
                 height: '0.5rem',
                 borderRadius: '9999px',
-                backgroundColor: syncStatus === 'connected' ? '#22c55e' : '#eab308'
+                backgroundColor: syncStatus === 'connected' ? '#22c55e' : syncStatus === 'syncing' ? '#eab308' : '#ef4444'
               }} />
               <span style={{ fontSize: '0.875rem', fontWeight: '500', textTransform: 'capitalize' }}>{syncStatus}</span>
             </div>
@@ -423,7 +421,6 @@ export default function TruckManagementSystem() {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
       <div style={{ backgroundColor: 'white', borderBottom: '1px solid #e5e7eb' }}>
         <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1rem' }}>
           <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -450,11 +447,9 @@ export default function TruckManagementSystem() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '1.5rem' }}>
         {activeTab === 'print' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Shift Summary */}
             <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Shift Summary</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
@@ -478,7 +473,6 @@ export default function TruckManagementSystem() {
               </div>
             </div>
 
-            {/* Batches */}
             {[1, 2, 3, 4].map(batch => (
               <div key={batch} style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -702,463 +696,18 @@ export default function TruckManagementSystem() {
         )}
 
         {activeTab === 'preshift' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Van & Semi Registry */}
-            <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Van & Semi Registry</h2>
-                <button
-                  onClick={() => setNewVanSemiForm(!newVanSemiForm)}
-                  style={{
-                    backgroundColor: '#2563eb',
-                    color: 'white',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '0.375rem',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '0.875rem'
-                  }}
-                >
-                  <Plus style={{ width: '1rem', height: '1rem' }} />
-                  Add Exception
-                </button>
-              </div>
-              {newVanSemiForm && (
-                <div style={{ marginBottom: '1rem', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', backgroundColor: '#f9fafb' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Truck Number</label>
-                      <input
-                        id="newVanSemiNumber"
-                        type="text"
-                        placeholder="Enter number"
-                        style={{
-                          width: '100%',
-                          padding: '0.5rem',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '0.375rem',
-                          fontSize: '0.875rem',
-                          color: '#111827',
-                          backgroundColor: 'white'
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Type</label>
-                      <select
-                        onChange={(e) => {
-                          const input = document.getElementById('newVanSemiNumber') as HTMLInputElement
-                          if (input && input.value) {
-                            addVanSemiNumber(input.value, e.target.value as 'Van' | 'Semi')
-                            input.value = ''
-                            setNewVanSemiForm(false)
-                          }
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '0.5rem',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '0.375rem',
-                          fontSize: '0.875rem',
-                          color: '#111827',
-                          backgroundColor: 'white'
-                        }}
-                      >
-                        <option value="">Select</option>
-                        <option value="Van">Van</option>
-                        <option value="Semi">Semi</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
-                {vanSemiNumbers.map(vs => (
-                  <div key={vs.id} style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white' }}>
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#111827' }}>{vs.number}</div>
-                      <div style={{ fontSize: '0.75rem', fontWeight: '500', color: vs.type === 'Van' ? '#2563eb' : '#9333ea' }}>{vs.type}</div>
-                    </div>
-                    <button
-                      onClick={() => deleteVanSemiNumber(vs.id)}
-                      style={{ backgroundColor: 'transparent', border: 'none', cursor: 'pointer', padding: '0.25rem' }}
-                    >
-                      <Trash style={{ width: '1rem', height: '1rem', color: '#ef4444' }} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Driver Database */}
-            <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Driver & Equipment Database</h2>
-                <button
-                  onClick={() => setNewDriverForm(true)}
-                  style={{
-                    backgroundColor: '#2563eb',
-                    color: 'white',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '0.375rem',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '0.875rem'
-                  }}
-                >
-                  <Plus style={{ width: '1rem', height: '1rem' }} />
-                  Add Driver
-                </button>
-              </div>
-              {newDriverForm && (
-                <div style={{ marginBottom: '1rem' }}>
-                  <button
-                    onClick={addDriver}
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#2563eb',
-                      color: 'white',
-                      padding: '0.75rem',
-                      borderRadius: '0.375rem',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontWeight: '500'
-                    }}
-                  >
-                    Create New Driver Profile
-                  </button>
-                </div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {drivers.map(driver => (
-                  <div key={driver.id} style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: 'white' }}>
-                    {editingDriver === driver.id ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Name</label>
-                            <input
-                              type="text"
-                              value={driver.name}
-                              onChange={(e) => updateDriver(driver.id, { name: e.target.value })}
-                              style={{
-                                width: '100%',
-                                padding: '0.5rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '0.375rem',
-                                fontSize: '0.875rem',
-                                color: '#111827',
-                                backgroundColor: 'white'
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Phone</label>
-                            <input
-                              type="text"
-                              value={driver.phone}
-                              onChange={(e) => updateDriver(driver.id, { phone: e.target.value })}
-                              style={{
-                                width: '100%',
-                                padding: '0.5rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '0.375rem',
-                                fontSize: '0.875rem',
-                                color: '#111827',
-                                backgroundColor: 'white'
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Tractor Number</label>
-                          <input
-                            type="text"
-                            value={driver.tractorNumber}
-                            onChange={(e) => updateDriver(driver.id, { tractorNumber: e.target.value })}
-                            style={{
-                              width: '100%',
-                              padding: '0.5rem',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '0.375rem',
-                              fontSize: '0.875rem',
-                              color: '#111827',
-                              backgroundColor: 'white'
-                            }}
-                          />
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 1</label>
-                            <input
-                              type="text"
-                              value={driver.trailer1}
-                              onChange={(e) => updateDriver(driver.id, { trailer1: e.target.value })}
-                              style={{
-                                width: '100%',
-                                padding: '0.5rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '0.375rem',
-                                fontSize: '0.875rem',
-                                color: '#111827',
-                                backgroundColor: 'white'
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 2</label>
-                            <input
-                              type="text"
-                              value={driver.trailer2}
-                              onChange={(e) => updateDriver(driver.id, { trailer2: e.target.value })}
-                              style={{
-                                width: '100%',
-                                padding: '0.5rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '0.375rem',
-                                fontSize: '0.875rem',
-                                color: '#111827',
-                                backgroundColor: 'white'
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 3</label>
-                            <input
-                              type="text"
-                              value={driver.trailer3}
-                              onChange={(e) => updateDriver(driver.id, { trailer3: e.target.value })}
-                              style={{
-                                width: '100%',
-                                padding: '0.5rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '0.375rem',
-                                fontSize: '0.875rem',
-                                color: '#111827',
-                                backgroundColor: 'white'
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button
-                            onClick={() => setEditingDriver(null)}
-                            style={{
-                              backgroundColor: '#2563eb',
-                              color: 'white',
-                              padding: '0.5rem 1rem',
-                              borderRadius: '0.375rem',
-                              border: 'none',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.5rem',
-                              fontSize: '0.875rem'
-                            }}
-                          >
-                            <Save style={{ width: '1rem', height: '1rem' }} />
-                            Save
-                          </button>
-                          <button
-                            onClick={() => deleteDriver(driver.id)}
-                            style={{
-                              backgroundColor: '#dc2626',
-                              color: 'white',
-                              padding: '0.5rem 1rem',
-                              borderRadius: '0.375rem',
-                              border: 'none',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.5rem',
-                              fontSize: '0.875rem'
-                            }}
-                          >
-                            <Trash style={{ width: '1rem', height: '1rem' }} />
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div>
-                          <div style={{ fontWeight: 'bold', color: '#111827' }}>{driver.name || 'New Driver'}</div>
-                          <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                            Tractor: {driver.tractorNumber} | Trailers: {[driver.trailer1, driver.trailer2, driver.trailer3].filter(Boolean).join(', ')}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setEditingDriver(driver.id)}
-                          style={{
-                            backgroundColor: 'transparent',
-                            border: '1px solid #d1d5db',
-                            padding: '0.5rem',
-                            borderRadius: '0.375rem',
-                            cursor: 'pointer',
-                            color: '#6b7280'
-                          }}
-                        >
-                          <Edit style={{ width: '1rem', height: '1rem' }} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Staging Doors */}
-            <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Staging Doors (18-28)</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                {stagingDoors.map(door => {
-                  const doorTrucks = preShiftTrucks.filter(t => t.stagingDoor === door).sort((a, b) => a.stagingPosition - b.stagingPosition)
-                  return (
-                    <div key={door} style={{ border: '2px solid #d1d5db', borderRadius: '0.5rem', padding: '1rem', backgroundColor: 'white' }}>
-                      <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.125rem', marginBottom: '0.75rem', color: '#111827' }}>Door {door}</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {[1, 2, 3, 4].map(position => {
-                          const truck = doorTrucks.find(t => t.stagingPosition === position)
-                          return (
-                            <div key={position} style={{ border: '1px solid #e5e7eb', borderRadius: '0.375rem', padding: '0.5rem', backgroundColor: '#f9fafb' }}>
-                              <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: '500' }}>Position {position}</div>
-                              {truck ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                  <input
-                                    type="text"
-                                    value={truck.truckNumber}
-                                    onChange={(e) => updatePreShiftTruck(truck.id, { truckNumber: e.target.value })}
-                                    placeholder="Truck #"
-                                    style={{
-                                      flex: 1,
-                                      padding: '0.375rem',
-                                      border: '1px solid #d1d5db',
-                                      borderRadius: '0.25rem',
-                                      fontSize: '0.875rem',
-                                      color: '#111827',
-                                      backgroundColor: 'white'
-                                    }}
-                                  />
-                                  <button
-                                    onClick={() => deletePreShiftTruck(truck.id)}
-                                    style={{ backgroundColor: 'transparent', border: 'none', cursor: 'pointer', padding: '0.25rem' }}
-                                  >
-                                    <X style={{ width: '1rem', height: '1rem', color: '#ef4444' }} />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => addPreShiftTruck(door, position)}
-                                  style={{
-                                    width: '100%',
-                                    backgroundColor: 'transparent',
-                                    border: '1px solid #d1d5db',
-                                    padding: '0.375rem',
-                                    borderRadius: '0.25rem',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: '#6b7280'
-                                  }}
-                                >
-                                  <Plus style={{ width: '1rem', height: '1rem' }} />
-                                </button>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+          <div style={{ padding: '1rem', backgroundColor: '#fef3c7', borderRadius: '0.5rem', border: '1px solid #fbbf24' }}>
+            <p style={{ margin: 0, color: '#92400e', fontWeight: '500' }}>
+              PreShift and Movement tabs coming soon. Print Room is fully functional with real-time multi-device sync via Vercel Blob.
+            </p>
           </div>
         )}
 
         {activeTab === 'movement' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-            {loadingDoors.map(door => {
-              const doorTrucks = Object.values(movementTrucks).filter(t => t.door === door && !t.ignored)
-              const currentDoorStatus = doorStatuses[door] || 'Loading'
-              return (
-                <div key={door} style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '2px solid #e5e7eb' }}>
-                  <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb' }}>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#111827', margin: '0 0 0.5rem 0' }}>Door {door}</h3>
-                    <select
-                      value={currentDoorStatus}
-                      onChange={(e) => updateDoorStatus(door, e.target.value as DoorStatus)}
-                      style={{
-                        width: '100%',
-                        height: '2.5rem',
-                        backgroundColor: getDoorStatusColor(currentDoorStatus),
-                        color: 'white',
-                        fontWeight: 'bold',
-                        border: 'none',
-                        borderRadius: '0.375rem',
-                        padding: '0 0.5rem',
-                        fontSize: '0.875rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {doorStatusOptions.map(status => (
-                        <option key={status} value={status} style={{ color: '#111827', backgroundColor: 'white' }}>{status}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {doorTrucks.map(truck => (
-                      <div key={truck.truckNumber} style={{ border: '2px solid #e5e7eb', borderRadius: '0.5rem', padding: '0.75rem', backgroundColor: 'white' }}>
-                        <div style={{
-                          backgroundColor: getRouteColor(truck.route),
-                          color: 'white',
-                          borderRadius: '0.25rem',
-                          padding: '0.5rem 0.75rem',
-                          fontSize: '0.875rem',
-                          fontWeight: 'bold',
-                          marginBottom: '0.5rem'
-                        }}>
-                          {truck.truckNumber}
-                          {truck.trailerNumber && <span style={{ marginLeft: '0.25rem' }}>({truck.trailerNumber})</span>}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.5rem', color: '#374151' }}>
-                          <div style={{ fontWeight: '500' }}>Type: {truck.truckType}</div>
-                          <div>Route: {truck.route}</div>
-                          <div>Pods: {truck.pods} | Pallets: {truck.pallets}</div>
-                        </div>
-                        <select
-                          value={truck.status}
-                          onChange={(e) => updateMovementTruck(truck.truckNumber, { status: e.target.value as TruckStatus })}
-                          style={{
-                            width: '100%',
-                            height: '2.25rem',
-                            fontSize: '0.75rem',
-                            fontWeight: '500',
-                            backgroundColor: getTruckStatusColor(truck.status),
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '0.25rem',
-                            padding: '0 0.5rem',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {truckStatuses.map(status => (
-                            <option key={status} value={status} style={{ color: '#111827', backgroundColor: 'white' }}>{status}</option>
-                          ))}
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
+          <div style={{ padding: '1rem', backgroundColor: '#fef3c7', borderRadius: '0.5rem', border: '1px solid #fbbf24' }}>
+            <p style={{ margin: 0, color: '#92400e', fontWeight: '500' }}>
+              PreShift and Movement tabs coming soon. Print Room is fully functional with real-time multi-device sync via Vercel Blob.
+            </p>
           </div>
         )}
       </div>
