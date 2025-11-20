@@ -1,440 +1,292 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
-import Header from '../components/Header'
-import Navigation from '../components/Navigation'
-import { 
-  PrintRoomTruck, 
-  PreShiftTruck, 
-  MovementTruck, 
-  Driver, 
-  VanSemiNumber,
-  routes, 
-  truckStatuses, 
-  doorStatusOptions,
-  getRouteColor, 
-  getTruckStatusColor 
-} from '@/lib/types'
-import type { Route, TruckStatus, DoorStatus, TruckType } from '@/lib/types'
+import React, { useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Activity, Home } from 'lucide-react'
+import Link from 'next/link'
+
+type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
+type TruckType = 'Van' | 'Box Truck' | 'Semi Trailer' | 'Semi'
+type DoorStatus = 'Loading' | 'EOT' | 'EOT+1' | 'Change Truck/Trailer' | 'Waiting' | 'Done For Night'
+type TruckStatus = 'On Route' | 'In Door' | 'Put Away' | 'In Front' | 'Ready' | 'In Back' | 
+                   'The Rock' | 'Yard' | 'Missing' | 'Doors 8-11' | 'Doors 12A-15B' | 
+                   'End' | 'Gap' | 'Transfer'
+
+interface TruckData {
+  id: string
+  truckNumber: string
+  door: string
+  route: Route
+  pods: number
+  pallets: number
+  batch: number
+  truckType: TruckType
+  status: TruckStatus
+  doorStatus: DoorStatus
+  ignored: boolean
+  lastUpdated: number
+}
+
+const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledonia', '5-Chippewa Falls']
+const doorStatuses: DoorStatus[] = ['Loading', 'EOT', 'EOT+1', 'Change Truck/Trailer', 'Waiting', 'Done For Night']
+const truckStatuses: TruckStatus[] = [
+  'On Route', 'In Door', 'Put Away', 'In Front', 'Ready', 'In Back',
+  'The Rock', 'Yard', 'Missing', 'Doors 8-11', 'Doors 12A-15B',
+  'End', 'Gap', 'Transfer'
+]
+
+const routeColors: Record<Route, string> = {
+  '1-Fond Du Lac': 'bg-blue-500',
+  '2-Green Bay': 'bg-green-500',
+  '3-Wausau': 'bg-purple-500',
+  '4-Caledonia': 'bg-orange-500',
+  '5-Chippewa Falls': 'bg-red-500'
+}
+
+const statusColors: Record<TruckStatus, string> = {
+  'On Route': 'bg-blue-600',
+  'In Door': 'bg-green-600',
+  'Put Away': 'bg-gray-600',
+  'In Front': 'bg-yellow-600',
+  'Ready': 'bg-cyan-600',
+  'In Back': 'bg-indigo-600',
+  'The Rock': 'bg-stone-600',
+  'Yard': 'bg-lime-600',
+  'Missing': 'bg-red-600',
+  'Doors 8-11': 'bg-pink-600',
+  'Doors 12A-15B': 'bg-teal-600',
+  'End': 'bg-violet-600',
+  'Gap': 'bg-amber-600',
+  'Transfer': 'bg-fuchsia-600'
+}
 
 export default function MovementPage() {
-  const [printRoomTrucks, setPrintRoomTrucks] = useState<PrintRoomTruck[]>([])
-  const [preShiftTrucks, setPreShiftTrucks] = useState<PreShiftTruck[]>([])
-  const [movementTrucks, setMovementTrucks] = useState<Record<string, MovementTruck>>({})
-  const [drivers, setDrivers] = useState<Driver[]>([])
-  const [vanSemiNumbers, setVanSemiNumbers] = useState<VanSemiNumber[]>([])
+  const [trucks, setTrucks] = useState<TruckData[]>([])
   const [filterRoute, setFilterRoute] = useState<Route | 'all'>('all')
   const [filterStatus, setFilterStatus] = useState<TruckStatus | 'all'>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('syncing')
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [pendingSave, setPendingSave] = useState(false)
 
-  const determineTruckType = (truckNumber: string): TruckType => {
-    const baseTruckNumber = truckNumber.replace(/-\d+$/, '')
-    const num = parseInt(baseTruckNumber)
-    
-    const vanSemi = vanSemiNumbers.find(vs => vs.number === baseTruckNumber)
-    if (vanSemi) return vanSemi.type
-    
-    const driver = drivers.find(d => 
-      d.tractorNumber === baseTruckNumber || 
-      d.trailerNumbers.includes(baseTruckNumber)
-    )
-    
-    if (driver) return 'Semi'
-    
-    if (!isNaN(num) && num < 170) return 'Box Truck'
-    
-    return 'Semi Trailer'
+  const updateTruck = (id: string, updates: Partial<TruckData>) => {
+    setTrucks(trucks.map(t => 
+      t.id === id ? { ...t, ...updates, lastUpdated: Date.now() } : t
+    ))
   }
 
-  const loadFromServer = async () => {
-    try {
-      setSyncStatus('syncing')
-      const response = await fetch('/api/data')
-      if (!response.ok) throw new Error('Failed to load data')
-      
-      const data = await response.json()
-      setPrintRoomTrucks(data.printRoomTrucks || [])
-      setPreShiftTrucks(data.preShiftTrucks || [])
-      setMovementTrucks(data.movementTrucks || {})
-      setDrivers(data.drivers || [])
-      setVanSemiNumbers(data.vanSemiNumbers || [])
-      setSyncStatus('connected')
-      setIsLoaded(true)
-    } catch (error) {
-      console.error('Error loading data:', error)
-      setSyncStatus('error')
-      if (!isLoaded) setIsLoaded(true)
-    }
-  }
-
-  const saveToServer = async () => {
-    if (pendingSave) return
-    
-    try {
-      setPendingSave(true)
-      setSyncStatus('syncing')
-      
-      const currentData = await fetch('/api/data').then(r => r.json())
-      
-      const response = await fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...currentData,
-          movementTrucks
-        })
-      })
-      
-      if (!response.ok) throw new Error('Failed to save data')
-      setSyncStatus('connected')
-    } catch (error) {
-      console.error('Error saving data:', error)
-      setSyncStatus('error')
-    } finally {
-      setPendingSave(false)
-    }
-  }
-
-  useEffect(() => {
-    loadFromServer()
-  }, [])
-
-  useEffect(() => {
-    if (!isLoaded) return
-    const timeoutId = setTimeout(() => {
-      saveToServer()
-    }, 1000)
-    return () => clearTimeout(timeoutId)
-  }, [movementTrucks, isLoaded])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadFromServer()
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    if (!isLoaded) return
-    
-    const newMovementTrucks: Record<string, MovementTruck> = {}
-    
-    printRoomTrucks.forEach(printTruck => {
-      const preShiftTruck = preShiftTrucks.find(pt => pt.truckNumber === printTruck.truckNumber)
-      const existingMovement = movementTrucks[printTruck.truckNumber]
-      
-      const trailerMatch = printTruck.truckNumber.match(/-(\d+)$/)
-      const trailerNumber = trailerMatch ? `-${trailerMatch[1]}` : undefined
-      const baseTruckNumber = printTruck.truckNumber.replace(/-\d+$/, '')
-      
-      newMovementTrucks[printTruck.truckNumber] = {
-        id: printTruck.id,
-        truckNumber: printTruck.truckNumber,
-        door: printTruck.door,
-        route: printTruck.route,
-        pods: printTruck.pods,
-        pallets: printTruck.pallets,
-        notes: printTruck.notes,
-        batch: printTruck.batch,
-        truckType: preShiftTruck?.truckType || determineTruckType(baseTruckNumber),
-        status: existingMovement?.status || (preShiftTruck ? 'Ready' : 'Missing'),
-        doorStatus: existingMovement?.doorStatus || 'Loading',
-        ignored: existingMovement?.ignored || false,
-        trailerNumber: trailerNumber,
-        lastUpdated: Date.now()
-      }
-    })
-    
-    setMovementTrucks(newMovementTrucks)
-  }, [printRoomTrucks, preShiftTrucks, drivers, vanSemiNumbers, isLoaded])
-
-  const updateMovementTruck = (truckNumber: string, updates: Partial<MovementTruck>) => {
-    setMovementTrucks(prev => ({
-      ...prev,
-      [truckNumber]: {
-        ...prev[truckNumber],
-        ...updates,
-        lastUpdated: Date.now()
-      }
-    }))
-  }
-
-  const getFilteredMovementTrucks = () => {
-    return Object.values(movementTrucks).filter(truck => {
-      if (filterRoute !== 'all' && truck.route !== filterRoute) return false
-      if (filterStatus !== 'all' && truck.status !== filterStatus) return false
-      if (searchTerm && !truck.truckNumber.toLowerCase().includes(searchTerm.toLowerCase())) return false
-      return true
-    })
-  }
-
-  const filteredTrucks = getFilteredMovementTrucks()
+  const filteredTrucks = trucks.filter(truck => {
+    if (filterRoute !== 'all' && truck.route !== filterRoute) return false
+    if (filterStatus !== 'all' && truck.status !== filterStatus) return false
+    if (searchTerm && !truck.truckNumber.toLowerCase().includes(searchTerm.toLowerCase())) return false
+    return true
+  })
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', color: '#111827' }}>
-      <Header syncStatus={syncStatus} />
-      <Navigation />
-      
-      <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '1.5rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Filters */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Filters & Search</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Activity className="w-8 h-8 text-purple-600" />
               <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Search Truck</label>
-                <input
-                  type="text"
+                <h1 className="text-2xl font-bold text-gray-900">Live Movement</h1>
+                <p className="text-sm text-gray-500">Real-time truck tracking and status updates</p>
+              </div>
+            </div>
+            <Link href="/">
+              <Button variant="outline" size="sm">
+                <Home className="w-4 h-4 mr-2" />
+                Home
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Filters */}
+        <Card className="bg-white">
+          <CardHeader>
+            <CardTitle className="text-gray-900">Filters & Search</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label className="text-gray-700">Search Truck Number</Label>
+                <Input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search truck number..."
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem',
-                    fontSize: '0.875rem',
-                    color: '#111827',
-                    backgroundColor: 'white'
-                  }}
+                  placeholder="Search..."
+                  className="bg-white text-gray-900"
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Filter by Route</label>
-                <select
-                  value={filterRoute}
-                  onChange={(e) => setFilterRoute(e.target.value as Route | 'all')}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem',
-                    fontSize: '0.875rem',
-                    color: '#111827',
-                    backgroundColor: 'white'
-                  }}
-                >
-                  <option value="all">All Routes</option>
-                  {routes.map(route => (
-                    <option key={route} value={route}>{route}</option>
-                  ))}
-                </select>
+                <Label className="text-gray-700">Filter by Route</Label>
+                <Select value={filterRoute} onValueChange={(value: Route | 'all') => setFilterRoute(value)}>
+                  <SelectTrigger className="bg-white text-gray-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">All Routes</SelectItem>
+                    {routes.map(route => (
+                      <SelectItem key={route} value={route}>{route}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Filter by Status</label>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as TruckStatus | 'all')}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem',
-                    fontSize: '0.875rem',
-                    color: '#111827',
-                    backgroundColor: 'white'
-                  }}
-                >
-                  <option value="all">All Statuses</option>
-                  {truckStatuses.map(status => (
-                    <option key={status} value={status}>{status}</option>
-                  ))}
-                </select>
+                <Label className="text-gray-700">Filter by Status</Label>
+                <Select value={filterStatus} onValueChange={(value: TruckStatus | 'all') => setFilterStatus(value)}>
+                  <SelectTrigger className="bg-white text-gray-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {truckStatuses.map(status => (
+                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Movement Dashboard */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>
-              Live Truck Movement Dashboard ({filteredTrucks.length} trucks)
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {filteredTrucks.map(truck => (
-                <div key={truck.truckNumber} style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                      <div style={{
-                        backgroundColor: getRouteColor(truck.route),
-                        color: 'white',
-                        borderRadius: '0.25rem',
-                        padding: '0.5rem 1rem',
-                        fontWeight: 'bold',
-                        fontSize: '1.125rem'
-                      }}>
-                        {truck.truckNumber}
+        {/* Movement Dashboard */}
+        <Card className="bg-white">
+          <CardHeader>
+            <CardTitle className="text-gray-900">Live Truck Movement Dashboard</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {filteredTrucks.length === 0 ? (
+              <div className="text-center py-12">
+                <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Trucks Found</h3>
+                <p className="text-gray-500">Add trucks in Print Room or PreShift to see them here</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredTrucks.map(truck => (
+                  <div key={truck.id} className="border rounded-lg p-4 bg-white">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`${routeColors[truck.route]} text-white rounded px-4 py-2 font-bold text-lg`}>
+                          {truck.truckNumber || 'New'}
+                        </div>
+                        <div className={`${statusColors[truck.status]} text-white rounded px-3 py-1 text-sm font-medium`}>
+                          {truck.status}
+                        </div>
+                        <div className="text-sm text-gray-600">Door {truck.door}</div>
+                        <div className="text-sm text-gray-600">{truck.route}</div>
+                        <div className="text-sm text-gray-600">{truck.truckType}</div>
                       </div>
-                      <div style={{
-                        backgroundColor: getTruckStatusColor(truck.status),
-                        color: 'white',
-                        borderRadius: '0.25rem',
-                        padding: '0.25rem 0.75rem',
-                        fontSize: '0.875rem',
-                        fontWeight: '500'
-                      }}>
-                        {truck.status}
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => updateTruck(truck.id, { ignored: !truck.ignored })}
+                          variant={truck.ignored ? "default" : "outline"}
+                          size="sm"
+                        >
+                          {truck.ignored ? 'Unignore' : 'Ignore'}
+                        </Button>
                       </div>
-                      <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Door {truck.door}</div>
-                      <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{truck.truckType}</div>
-                      <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Batch {truck.batch}</div>
                     </div>
-                    <button
-                      onClick={() => updateMovementTruck(truck.truckNumber, { ignored: !truck.ignored })}
-                      style={{
-                        backgroundColor: truck.ignored ? '#2563eb' : 'transparent',
-                        color: truck.ignored ? 'white' : '#6b7280',
-                        border: '1px solid #d1d5db',
-                        padding: '0.5rem 1rem',
-                        borderRadius: '0.375rem',
-                        cursor: 'pointer',
-                        fontSize: '0.875rem',
-                        fontWeight: '500'
-                      }}
-                    >
-                      {truck.ignored ? 'Unignore' : 'Ignore'}
-                    </button>
-                  </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-gray-700">Truck Status</Label>
+                        <Select
+                          value={truck.status}
+                          onValueChange={(value: TruckStatus) => updateTruck(truck.id, { status: value })}
+                        >
+                          <SelectTrigger className="bg-white text-gray-900">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white">
+                            {truckStatuses.map(status => (
+                              <SelectItem key={status} value={status}>{status}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div>
+                        <Label className="text-gray-700">Door Status</Label>
+                        <Select
+                          value={truck.doorStatus}
+                          onValueChange={(value: DoorStatus) => updateTruck(truck.id, { doorStatus: value })}
+                        >
+                          <SelectTrigger className="bg-white text-gray-900">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white">
+                            {doorStatuses.map(status => (
+                              <SelectItem key={status} value={status}>{status}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Truck Status</label>
-                      <select
-                        value={truck.status}
-                        onChange={(e) => updateMovementTruck(truck.truckNumber, { status: e.target.value as TruckStatus })}
-                        style={{
-                          width: '100%',
-                          padding: '0.5rem',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '0.375rem',
-                          fontSize: '0.875rem',
-                          color: '#111827',
-                          backgroundColor: 'white'
-                        }}
-                      >
-                        {truckStatuses.map(status => (
-                          <option key={status} value={status}>{status}</option>
-                        ))}
-                      </select>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="text-center p-2 bg-blue-50 rounded">
+                        <div className="text-sm text-gray-600">Pods</div>
+                        <div className="text-xl font-bold text-blue-700">{truck.pods}</div>
+                      </div>
+                      <div className="text-center p-2 bg-green-50 rounded">
+                        <div className="text-sm text-gray-600">Pallets</div>
+                        <div className="text-xl font-bold text-green-700">{truck.pallets}</div>
+                      </div>
+                      <div className="text-center p-2 bg-purple-50 rounded">
+                        <div className="text-sm text-gray-600">Batch</div>
+                        <div className="text-xl font-bold text-purple-700">{truck.batch}</div>
+                      </div>
                     </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Door Status</label>
-                      <select
-                        value={truck.doorStatus}
-                        onChange={(e) => updateMovementTruck(truck.truckNumber, { doorStatus: e.target.value as DoorStatus })}
-                        style={{
-                          width: '100%',
-                          padding: '0.5rem',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '0.375rem',
-                          fontSize: '0.875rem',
-                          color: '#111827',
-                          backgroundColor: 'white'
-                        }}
-                      >
-                        {doorStatusOptions.map(status => (
-                          <option key={status} value={status}>{status}</option>
-                        ))}
-                      </select>
+
+                    <div className="mt-4 text-xs text-gray-400">
+                      Last updated: {new Date(truck.lastUpdated).toLocaleTimeString()}
                     </div>
                   </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <div style={{ backgroundColor: '#dbeafe', borderRadius: '0.375rem', padding: '0.75rem', textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.75rem', color: '#1e40af', marginBottom: '0.25rem' }}>Pods</div>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e40af' }}>{truck.pods}</div>
-                    </div>
-                    <div style={{ backgroundColor: '#dcfce7', borderRadius: '0.375rem', padding: '0.75rem', textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.75rem', color: '#15803d', marginBottom: '0.25rem' }}>Pallets</div>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#15803d' }}>{truck.pallets}</div>
-                    </div>
-                    <div style={{ backgroundColor: '#fae8ff', borderRadius: '0.375rem', padding: '0.75rem', textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.75rem', color: '#7e22ce', marginBottom: '0.25rem' }}>Route</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#7e22ce' }}>{truck.route.split('-')[0]}</div>
-                    </div>
-                  </div>
-
-                  {truck.notes && (
-                    <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.375rem', marginBottom: '0.5rem' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Notes:</div>
-                      <div style={{ fontSize: '0.875rem', color: '#111827' }}>{truck.notes}</div>
-                    </div>
-                  )}
-
-                  <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
-                    Last updated: {new Date(truck.lastUpdated).toLocaleTimeString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Status Updates */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Quick Status Updates</h2>
-            <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem' }}>
-              Click a status to update all visible trucks (filtered results)
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.5rem' }}>
-              {truckStatuses.map(status => (
-                <button
+        {/* Quick Actions */}
+        <Card className="bg-white">
+          <CardHeader>
+            <CardTitle className="text-gray-900">Quick Status Updates</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {truckStatuses.slice(0, 8).map(status => (
+                <Button
                   key={status}
                   onClick={() => {
-                    if (window.confirm(`Update ${filteredTrucks.length} visible trucks to "${status}"?`)) {
-                      filteredTrucks.forEach(truck => {
-                        if (!truck.ignored) {
-                          updateMovementTruck(truck.truckNumber, { status })
-                        }
-                      })
+                    const selectedTrucks = filteredTrucks.filter(t => !t.ignored)
+                    if (selectedTrucks.length > 0 && window.confirm(`Update ${selectedTrucks.length} trucks to ${status}?`)) {
+                      selectedTrucks.forEach(truck => updateTruck(truck.id, { status }))
                     }
                   }}
-                  style={{
-                    backgroundColor: getTruckStatusColor(status),
-                    color: 'white',
-                    padding: '0.75rem',
-                    borderRadius: '0.375rem',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'opacity 0.2s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                  variant="outline"
+                  size="sm"
+                  className={`${statusColors[status]} text-white hover:opacity-80`}
                 >
                   {status}
-                </button>
+                </Button>
               ))}
             </div>
-          </div>
-
-          {/* Status Summary */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Status Summary</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' }}>
-              {truckStatuses.map(status => {
-                const count = Object.values(movementTrucks).filter(t => t.status === status && !t.ignored).length
-                return (
-                  <div 
-                    key={status}
-                    style={{
-                      backgroundColor: getTruckStatusColor(status),
-                      color: 'white',
-                      borderRadius: '0.375rem',
-                      padding: '0.75rem',
-                      textAlign: 'center'
-                    }}
-                  >
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{count}</div>
-                    <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>{status}</div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
