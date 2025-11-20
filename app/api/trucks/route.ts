@@ -1,79 +1,43 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
 
-const DATA_FILE = path.join(process.cwd(), 'data', 'trucks.json')
-
-// Ensure data directory exists
-function ensureDataDir() {
-  const dataDir = path.join(process.cwd(), 'data')
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true })
-  }
-}
-
-// Read data from file
-function readData() {
-  ensureDataDir()
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      const data = fs.readFileSync(DATA_FILE, 'utf8')
-      return JSON.parse(data)
-    }
-  } catch (error) {
-    console.error('Error reading data:', error)
-  }
-  return { 
-    trucks: [], 
-    drivers: [], 
-    settings: {
-      autoResetEnabled: false,
-      autoResetTime: '00:00',
-      autoResetPrintRoom: false,
-      autoResetStaging: false
-    }
-  }
-}
-
-// Write data to file
-function writeData(data: any) {
-  ensureDataDir()
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8')
-    return true
-  } catch (error) {
-    console.error('Error writing data:', error)
-    return false
+// In-memory storage (will be replaced with proper database later)
+let dataStore = {
+  trucks: [],
+  drivers: [],
+  settings: {
+    autoResetEnabled: false,
+    autoResetTime: '00:00',
+    autoResetPrintRoom: false,
+    autoResetStaging: false
   }
 }
 
 export async function GET() {
-  const data = readData()
-  return NextResponse.json(data)
+  return NextResponse.json(dataStore)
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const currentData = readData()
     
-    // Merge with existing data, preserving what's not being updated
-    const newData = {
-      trucks: body.trucks !== undefined ? body.trucks : currentData.trucks,
-      drivers: body.drivers !== undefined ? body.drivers : currentData.drivers,
-      settings: body.settings !== undefined ? { ...currentData.settings, ...body.settings } : currentData.settings
+    // Update only the fields that are provided
+    if (body.trucks !== undefined) {
+      dataStore.trucks = body.trucks
+    }
+    if (body.drivers !== undefined) {
+      dataStore.drivers = body.drivers
+    }
+    if (body.settings !== undefined) {
+      dataStore.settings = { ...dataStore.settings, ...body.settings }
     }
     
-    const success = writeData(newData)
-    
-    if (success) {
-      return NextResponse.json({ success: true, data: newData })
-    } else {
-      return NextResponse.json({ success: false, error: 'Failed to write data' }, { status: 500 })
-    }
+    return NextResponse.json({ success: true, data: dataStore })
   } catch (error) {
     console.error('Error in POST:', error)
-    return NextResponse.json({ success: false, error: 'Invalid request' }, { status: 400 })
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Invalid request: ' + (error instanceof Error ? error.message : 'Unknown error')
+    }, { status: 400 })
   }
 }
 
@@ -82,32 +46,19 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url)
     const target = searchParams.get('target')
     
-    const currentData = readData()
-    
     switch (target) {
       case 'all':
         // Delete everything except settings
-        writeData({ 
-          trucks: [], 
-          drivers: [], 
-          settings: currentData.settings 
-        })
+        dataStore.trucks = []
+        dataStore.drivers = []
         break
       case 'printroom':
         // Only delete trucks that are not in staging
-        const stagingTrucks = currentData.trucks.filter((t: any) => t.stagingDoor)
-        writeData({ 
-          ...currentData, 
-          trucks: stagingTrucks 
-        })
+        dataStore.trucks = dataStore.trucks.filter((t: any) => t.stagingDoor)
         break
       case 'staging':
         // Only delete trucks in staging doors (18-28), keep drivers and print room trucks
-        const nonStagingTrucks = currentData.trucks.filter((t: any) => !t.stagingDoor)
-        writeData({ 
-          ...currentData, 
-          trucks: nonStagingTrucks 
-        })
+        dataStore.trucks = dataStore.trucks.filter((t: any) => !t.stagingDoor)
         break
       default:
         return NextResponse.json({ success: false, error: 'Invalid target' }, { status: 400 })
