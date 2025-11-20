@@ -23,7 +23,16 @@ function readData() {
   } catch (error) {
     console.error('Error reading data:', error)
   }
-  return { trucks: [], drivers: [], settings: {} }
+  return { 
+    trucks: [], 
+    drivers: [], 
+    settings: {
+      autoResetEnabled: false,
+      autoResetTime: '00:00',
+      autoResetPrintRoom: false,
+      autoResetStaging: false
+    }
+  }
 }
 
 // Write data to file
@@ -52,7 +61,7 @@ export async function POST(request: Request) {
     const newData = {
       trucks: body.trucks !== undefined ? body.trucks : currentData.trucks,
       drivers: body.drivers !== undefined ? body.drivers : currentData.drivers,
-      settings: body.settings !== undefined ? body.settings : currentData.settings
+      settings: body.settings !== undefined ? { ...currentData.settings, ...body.settings } : currentData.settings
     }
     
     const success = writeData(newData)
@@ -77,15 +86,28 @@ export async function DELETE(request: Request) {
     
     switch (target) {
       case 'all':
-        writeData({ trucks: [], drivers: [], settings: currentData.settings })
+        // Delete everything except settings
+        writeData({ 
+          trucks: [], 
+          drivers: [], 
+          settings: currentData.settings 
+        })
         break
       case 'printroom':
-        writeData({ ...currentData, trucks: [] })
+        // Only delete trucks that are not in staging
+        const stagingTrucks = currentData.trucks.filter((t: any) => t.stagingDoor)
+        writeData({ 
+          ...currentData, 
+          trucks: stagingTrucks 
+        })
         break
       case 'staging':
-        // Only delete trucks in staging doors (18-28), keep drivers
-        const filteredTrucks = currentData.trucks.filter((t: any) => !t.stagingDoor)
-        writeData({ ...currentData, trucks: filteredTrucks })
+        // Only delete trucks in staging doors (18-28), keep drivers and print room trucks
+        const nonStagingTrucks = currentData.trucks.filter((t: any) => !t.stagingDoor)
+        writeData({ 
+          ...currentData, 
+          trucks: nonStagingTrucks 
+        })
         break
       default:
         return NextResponse.json({ success: false, error: 'Invalid target' }, { status: 400 })
