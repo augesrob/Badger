@@ -39,10 +39,9 @@ export default function MovementPage() {
     
     const driver = drivers.find(d => 
       d.tractorNumber === baseTruckNumber || 
-      d.trailer1 === baseTruckNumber || 
-      d.trailer2 === baseTruckNumber || 
-      d.trailer3 === baseTruckNumber
+      d.trailerNumbers.includes(baseTruckNumber)
     )
+    
     if (driver) return 'Semi'
     
     if (!isNaN(num) && num < 170) return 'Box Truck'
