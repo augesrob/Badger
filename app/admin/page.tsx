@@ -238,7 +238,7 @@ export default function AdminPage() {
                           setAdminSettings({ ...adminSettings, resetTime: newTime })
                         }}
                       >
-                        <SelectTrigger className="border-2 border-gray-300 bg-white">
+                        <SelectTrigger className="border-2 border-gray-300 bg-white text-gray-900">
                           <SelectValue className="text-gray-900" />
                         </SelectTrigger>
                         <SelectContent className="bg-white border-2 border-gray-300">
@@ -260,7 +260,7 @@ export default function AdminPage() {
                           setAdminSettings({ ...adminSettings, resetTime: newTime })
                         }}
                       >
-                        <SelectTrigger className="border-2 border-gray-300 bg-white">
+                        <SelectTrigger className="border-2 border-gray-300 bg-white text-gray-900">
                           <SelectValue className="text-gray-900" />
                         </SelectTrigger>
                         <SelectContent className="bg-white border-2 border-gray-300 max-h-60">
@@ -282,7 +282,7 @@ export default function AdminPage() {
                           setAdminSettings({ ...adminSettings, resetTime: newTime })
                         }}
                       >
-                        <SelectTrigger className="border-2 border-gray-300 bg-white">
+                        <SelectTrigger className="border-2 border-gray-300 bg-white text-gray-900">
                           <SelectValue className="text-gray-900" />
                         </SelectTrigger>
                         <SelectContent className="bg-white border-2 border-gray-300">
@@ -455,7 +455,7 @@ export default function AdminPage() {
                               value={truck.truckNumber}
                               onChange={(e) => updateTruckInDatabase(truck.id, { truckNumber: e.target.value })}
                               placeholder="Truck #"
-                              className="border-2 border-gray-300 bg-white text-gray-900"
+                              className="border-2 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400"
                             />
                           </div>
                           <div>
@@ -464,12 +464,12 @@ export default function AdminPage() {
                               value={truck.truckType}
                               onValueChange={(value: TruckType) => updateTruckInDatabase(truck.id, { truckType: value })}
                             >
-                              <SelectTrigger className="border-2 border-gray-300 bg-white">
+                              <SelectTrigger className="border-2 border-gray-300 bg-white text-gray-900">
                                 <SelectValue className="text-gray-900" />
                               </SelectTrigger>
                               <SelectContent className="bg-white border-2 border-gray-300">
                                 {truckTypes.map(type => (
-                                  <SelectItem key={type} value={type} className="text-gray-900 hover:bg-blue-50">
+                                  <SelectItem key={type} value={type} className="text-gray-900 hover:bg-blue-50 cursor-pointer">
                                     {type}
                                   </SelectItem>
                                 ))}
@@ -483,12 +483,12 @@ export default function AdminPage() {
                             value={truck.transmission}
                             onValueChange={(value: 'Automatic' | 'Manual') => updateTruckInDatabase(truck.id, { transmission: value })}
                           >
-                            <SelectTrigger className="border-2 border-gray-300 bg-white">
+                            <SelectTrigger className="border-2 border-gray-300 bg-white text-gray-900">
                               <SelectValue className="text-gray-900" />
                             </SelectTrigger>
                             <SelectContent className="bg-white border-2 border-gray-300">
-                              <SelectItem value="Automatic" className="text-gray-900 hover:bg-blue-50">Automatic</SelectItem>
-                              <SelectItem value="Manual" className="text-gray-900 hover:bg-blue-50">Manual</SelectItem>
+                              <SelectItem value="Automatic" className="text-gray-900 hover:bg-blue-50 cursor-pointer">Automatic</SelectItem>
+                              <SelectItem value="Manual" className="text-gray-900 hover:bg-blue-50 cursor-pointer">Manual</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -499,7 +499,7 @@ export default function AdminPage() {
                             onChange={(e) => updateTruckInDatabase(truck.id, { notes: e.target.value })}
                             placeholder="Additional information..."
                             rows={2}
-                            className="border-2 border-gray-300 bg-white text-gray-900"
+                            className="border-2 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400"
                           />
                         </div>
                         <div className="flex gap-2">
