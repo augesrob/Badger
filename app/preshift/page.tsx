@@ -98,6 +98,8 @@ export default function PreShiftPage() {
       stagingDoor: door,
       stagingPosition: position,
       truckType: 'Van',
+      route: '1-Fond Du Lac',
+      notes: '',
       lastUpdated: Date.now()
     }
     setPreShiftTrucks([...preShiftTrucks, newTruck])
