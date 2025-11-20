@@ -206,6 +206,30 @@ export default function PreShiftPage() {
     setExpandedTruck(null)
   }
 
+  // Helper function to get position label
+  const getPositionLabel = (position: number) => {
+    switch (position) {
+      case 1:
+        return 'Front Left'
+      case 2:
+        return 'Back Left'
+      case 3:
+        return 'Front Right'
+      case 4:
+        return 'Back Right'
+      default:
+        return `Position ${position}`
+    }
+  }
+
+  // Helper function to get position styling
+  const getPositionStyle = (position: number) => {
+    // Position 1 & 3 are front (lighter background)
+    // Position 2 & 4 are back (darker background)
+    const isFront = position === 1 || position === 3
+    return isFront ? 'bg-blue-50 border-blue-300' : 'bg-gray-100 border-gray-400'
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -294,6 +318,41 @@ export default function PreShiftPage() {
       )}
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Garage Layout Explanation */}
+        <Card className="bg-blue-50 border-2 border-blue-200">
+          <CardHeader>
+            <CardTitle className="text-blue-900">Garage Layout Guide</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <p className="text-sm text-blue-800">
+                Each staging door represents a 4-vehicle garage with 2 vehicles in front and 2 in back:
+              </p>
+              <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+                <div className="bg-blue-100 border-2 border-blue-400 rounded-lg p-3 text-center">
+                  <div className="font-bold text-blue-900">Position 1</div>
+                  <div className="text-sm text-blue-700">Front Left</div>
+                </div>
+                <div className="bg-blue-100 border-2 border-blue-400 rounded-lg p-3 text-center">
+                  <div className="font-bold text-blue-900">Position 3</div>
+                  <div className="text-sm text-blue-700">Front Right</div>
+                </div>
+                <div className="bg-gray-200 border-2 border-gray-500 rounded-lg p-3 text-center">
+                  <div className="font-bold text-gray-900">Position 2</div>
+                  <div className="text-sm text-gray-700">Back Left</div>
+                </div>
+                <div className="bg-gray-200 border-2 border-gray-500 rounded-lg p-3 text-center">
+                  <div className="font-bold text-gray-900">Position 4</div>
+                  <div className="text-sm text-gray-700">Back Right</div>
+                </div>
+              </div>
+              <p className="text-xs text-blue-700 text-center mt-2">
+                Front positions (1 & 3) have lighter background, Back positions (2 & 4) have darker background
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Driver Management - Semi Tractors & Trailers */}
         <Card className="bg-white">
           <CardHeader>
@@ -461,7 +520,7 @@ export default function PreShiftPage() {
           <CardHeader>
             <div>
               <CardTitle className="text-gray-900">Staging Doors (18-28)</CardTitle>
-              <p className="text-sm text-gray-500 mt-1">Box Trucks, Vans, and Tandems - Position Management</p>
+              <p className="text-sm text-gray-500 mt-1">Box Trucks, Vans, and Tandems - 4-Vehicle Garage Layout</p>
             </div>
           </CardHeader>
           <CardContent>
@@ -474,110 +533,256 @@ export default function PreShiftPage() {
                 return (
                   <div key={door} className="border-2 border-gray-300 rounded-lg p-4 bg-white">
                     <div className="text-center font-bold mb-3 text-lg text-gray-900">Door {door}</div>
-                    <div className="space-y-2">
-                      {[1, 2, 3, 4].map(position => {
-                        const truck = doorTrucks.find(t => t.stagingPosition === position)
+                    
+                    {/* Garage Layout: 2x2 Grid */}
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      {/* Position 1: Front Left */}
+                      {(() => {
+                        const truck = doorTrucks.find(t => t.stagingPosition === 1)
                         const isExpanded = expandedTruck === truck?.id
                         
                         return (
-                          <div key={position} className="border rounded p-2 bg-white">
-                            <div className="text-xs text-gray-500 mb-1">
-                              Position {position} {position === 1 ? '(Front)' : position === 4 ? '(Back)' : ''}
+                          <div className={`border-2 rounded p-2 ${getPositionStyle(1)}`}>
+                            <div className="text-xs font-medium text-gray-700 mb-1">
+                              {getPositionLabel(1)}
                             </div>
                             
                             {truck ? (
                               <div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1">
                                   <Input
                                     value={truck.truckNumber}
-                                    onChange={(e) => updateTruckNumber(door, position, e.target.value)}
+                                    onChange={(e) => updateTruckNumber(door, 1, e.target.value)}
                                     placeholder="Truck #"
-                                    className="flex-1 bg-white text-gray-900 border-gray-300 font-bold"
+                                    className="flex-1 bg-white text-gray-900 border-gray-300 font-bold text-sm h-8"
                                   />
                                   <Button
                                     onClick={() => setExpandedTruck(isExpanded ? null : truck.id)}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white p-1 h-8 w-8"
                                     size="sm"
                                   >
-                                    {isExpanded ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                                    {isExpanded ? <X className="w-3 h-3" /> : <Edit className="w-3 h-3" />}
                                   </Button>
                                 </div>
                                 
-                                {isExpanded && (
-                                  <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded">
-                                    <div>
-                                      <Label className="text-gray-700 text-xs">Route</Label>
-                                      <Select
-                                        value={truck.route}
-                                        onValueChange={(value: Route) => updateTruck(truck.id, { route: value })}
-                                      >
-                                        <SelectTrigger className="bg-white text-gray-900 border-gray-300 h-8 text-sm">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white">
-                                          {routes.map(route => (
-                                            <SelectItem key={route} value={route}>{route}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    
-                                    <div>
-                                      <Label className="text-gray-700 text-xs">Vehicle Type</Label>
-                                      <Select
-                                        value={truck.truckType}
-                                        onValueChange={(value: TruckType) => updateTruck(truck.id, { truckType: value })}
-                                      >
-                                        <SelectTrigger className="bg-white text-gray-900 border-gray-300 h-8 text-sm">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white">
-                                          {truckTypes.map(type => (
-                                            <SelectItem key={type} value={type}>{type}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    
-                                    <div>
-                                      <Label className="text-gray-700 text-xs">Notes</Label>
-                                      <Textarea
-                                        value={truck.notes}
-                                        onChange={(e) => updateTruck(truck.id, { notes: e.target.value })}
-                                        placeholder="Special instructions..."
-                                        rows={2}
-                                        className="bg-white text-gray-900 border-gray-300 text-sm"
-                                      />
-                                    </div>
-                                    
-                                    <Button
-                                      onClick={() => deleteTruck(truck.id)}
-                                      className="w-full bg-red-600 hover:bg-red-700 text-white"
-                                      size="sm"
-                                    >
-                                      <Trash className="w-4 h-4 mr-2" />
-                                      Remove Vehicle
-                                    </Button>
-                                  </div>
-                                )}
-                                
                                 {!isExpanded && (
                                   <div className={`${routeColors[truck.route]} text-white rounded p-1 text-center text-xs font-medium mt-1`}>
-                                    {truck.route} - {truck.truckType}
+                                    {truck.truckType}
                                   </div>
                                 )}
                               </div>
                             ) : (
                               <Input
-                                placeholder="Enter truck #"
-                                onChange={(e) => updateTruckNumber(door, position, e.target.value)}
-                                className="bg-white text-gray-900 border-gray-300"
+                                placeholder="Truck #"
+                                onChange={(e) => updateTruckNumber(door, 1, e.target.value)}
+                                className="bg-white text-gray-900 border-gray-300 text-sm h-8"
                               />
                             )}
                           </div>
                         )
-                      })}
+                      })()}
+
+                      {/* Position 3: Front Right */}
+                      {(() => {
+                        const truck = doorTrucks.find(t => t.stagingPosition === 3)
+                        const isExpanded = expandedTruck === truck?.id
+                        
+                        return (
+                          <div className={`border-2 rounded p-2 ${getPositionStyle(3)}`}>
+                            <div className="text-xs font-medium text-gray-700 mb-1">
+                              {getPositionLabel(3)}
+                            </div>
+                            
+                            {truck ? (
+                              <div>
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    value={truck.truckNumber}
+                                    onChange={(e) => updateTruckNumber(door, 3, e.target.value)}
+                                    placeholder="Truck #"
+                                    className="flex-1 bg-white text-gray-900 border-gray-300 font-bold text-sm h-8"
+                                  />
+                                  <Button
+                                    onClick={() => setExpandedTruck(isExpanded ? null : truck.id)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white p-1 h-8 w-8"
+                                    size="sm"
+                                  >
+                                    {isExpanded ? <X className="w-3 h-3" /> : <Edit className="w-3 h-3" />}
+                                  </Button>
+                                </div>
+                                
+                                {!isExpanded && (
+                                  <div className={`${routeColors[truck.route]} text-white rounded p-1 text-center text-xs font-medium mt-1`}>
+                                    {truck.truckType}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <Input
+                                placeholder="Truck #"
+                                onChange={(e) => updateTruckNumber(door, 3, e.target.value)}
+                                className="bg-white text-gray-900 border-gray-300 text-sm h-8"
+                              />
+                            )}
+                          </div>
+                        )
+                      })()}
+
+                      {/* Position 2: Back Left */}
+                      {(() => {
+                        const truck = doorTrucks.find(t => t.stagingPosition === 2)
+                        const isExpanded = expandedTruck === truck?.id
+                        
+                        return (
+                          <div className={`border-2 rounded p-2 ${getPositionStyle(2)}`}>
+                            <div className="text-xs font-medium text-gray-700 mb-1">
+                              {getPositionLabel(2)}
+                            </div>
+                            
+                            {truck ? (
+                              <div>
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    value={truck.truckNumber}
+                                    onChange={(e) => updateTruckNumber(door, 2, e.target.value)}
+                                    placeholder="Truck #"
+                                    className="flex-1 bg-white text-gray-900 border-gray-300 font-bold text-sm h-8"
+                                  />
+                                  <Button
+                                    onClick={() => setExpandedTruck(isExpanded ? null : truck.id)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white p-1 h-8 w-8"
+                                    size="sm"
+                                  >
+                                    {isExpanded ? <X className="w-3 h-3" /> : <Edit className="w-3 h-3" />}
+                                  </Button>
+                                </div>
+                                
+                                {!isExpanded && (
+                                  <div className={`${routeColors[truck.route]} text-white rounded p-1 text-center text-xs font-medium mt-1`}>
+                                    {truck.truckType}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <Input
+                                placeholder="Truck #"
+                                onChange={(e) => updateTruckNumber(door, 2, e.target.value)}
+                                className="bg-white text-gray-900 border-gray-300 text-sm h-8"
+                              />
+                            )}
+                          </div>
+                        )
+                      })()}
+
+                      {/* Position 4: Back Right */}
+                      {(() => {
+                        const truck = doorTrucks.find(t => t.stagingPosition === 4)
+                        const isExpanded = expandedTruck === truck?.id
+                        
+                        return (
+                          <div className={`border-2 rounded p-2 ${getPositionStyle(4)}`}>
+                            <div className="text-xs font-medium text-gray-700 mb-1">
+                              {getPositionLabel(4)}
+                            </div>
+                            
+                            {truck ? (
+                              <div>
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    value={truck.truckNumber}
+                                    onChange={(e) => updateTruckNumber(door, 4, e.target.value)}
+                                    placeholder="Truck #"
+                                    className="flex-1 bg-white text-gray-900 border-gray-300 font-bold text-sm h-8"
+                                  />
+                                  <Button
+                                    onClick={() => setExpandedTruck(isExpanded ? null : truck.id)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white p-1 h-8 w-8"
+                                    size="sm"
+                                  >
+                                    {isExpanded ? <X className="w-3 h-3" /> : <Edit className="w-3 h-3" />}
+                                  </Button>
+                                </div>
+                                
+                                {!isExpanded && (
+                                  <div className={`${routeColors[truck.route]} text-white rounded p-1 text-center text-xs font-medium mt-1`}>
+                                    {truck.truckType}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <Input
+                                placeholder="Truck #"
+                                onChange={(e) => updateTruckNumber(door, 4, e.target.value)}
+                                className="bg-white text-gray-900 border-gray-300 text-sm h-8"
+                              />
+                            )}
+                          </div>
+                        )
+                      })()}
                     </div>
+
+                    {/* Expanded truck details */}
+                    {doorTrucks.map(truck => {
+                      if (expandedTruck !== truck.id) return null
+                      
+                      return (
+                        <div key={truck.id} className="mt-3 space-y-2 p-3 bg-gray-50 rounded border">
+                          <div>
+                            <Label className="text-gray-700 text-xs">Route</Label>
+                            <Select
+                              value={truck.route}
+                              onValueChange={(value: Route) => updateTruck(truck.id, { route: value })}
+                            >
+                              <SelectTrigger className="bg-white text-gray-900 border-gray-300 h-8 text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white">
+                                {routes.map(route => (
+                                  <SelectItem key={route} value={route}>{route}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div>
+                            <Label className="text-gray-700 text-xs">Vehicle Type</Label>
+                            <Select
+                              value={truck.truckType}
+                              onValueChange={(value: TruckType) => updateTruck(truck.id, { truckType: value })}
+                            >
+                              <SelectTrigger className="bg-white text-gray-900 border-gray-300 h-8 text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white">
+                                {truckTypes.map(type => (
+                                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div>
+                            <Label className="text-gray-700 text-xs">Notes</Label>
+                            <Textarea
+                              value={truck.notes}
+                              onChange={(e) => updateTruck(truck.id, { notes: e.target.value })}
+                              placeholder="Special instructions..."
+                              rows={2}
+                              className="bg-white text-gray-900 border-gray-300 text-sm"
+                            />
+                          </div>
+                          
+                          <Button
+                            onClick={() => deleteTruck(truck.id)}
+                            className="w-full bg-red-600 hover:bg-red-700 text-white"
+                            size="sm"
+                          >
+                            <Trash className="w-4 h-4 mr-2" />
+                            Remove Vehicle
+                          </Button>
+                        </div>
+                      )
+                    })}
                   </div>
                 )
               })}
