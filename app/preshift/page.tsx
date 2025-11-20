@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Plus, Trash, Edit, Save, X } from 'lucide-react'
 import Header from '../components/Header'
 import Navigation from '../components/Navigation'
-import { PreShiftTruck, Driver, VanSemiNumber, PrintRoomTruck, stagingDoors, truckTypes } from '../lib/types'
+import { PreShiftTruck, Driver, VanSemiNumber, PrintRoomTruck, stagingDoors, truckTypes } from '@/lib/types'
 import type { TruckType } from '@/lib/types'
 
 export default function PreShiftPage() {
