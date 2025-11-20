@@ -149,6 +149,7 @@ export default function PreShiftPage() {
       id: Date.now().toString(),
       number: newVanSemiNumber.trim(),
       type: newVanSemiType
+      inUse: false
     }
     setVanSemiNumbers([...vanSemiNumbers, newVanSemi])
     setNewVanSemiNumber('')
