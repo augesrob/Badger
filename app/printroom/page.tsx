@@ -17,7 +17,6 @@ import { Truck, Plus, Trash, Edit, Save, Menu, Home, X, Users, Activity, Shield 
 import Link from 'next/link'
 
 type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
-type TruckType = 'Van' | 'Box Truck' | 'Tandem'
 
 interface TruckData {
   id: string
@@ -28,7 +27,6 @@ interface TruckData {
   pallets: number
   notes: string
   batch: number
-  truckType: TruckType
   stagingDoor?: string
   stagingPosition?: number
 }
@@ -112,8 +110,7 @@ export default function PrintRoomPage() {
       pods: 0,
       pallets: 0,
       notes: '',
-      batch,
-      truckType: 'Van'
+      batch
     }
     setTrucks([...trucks, newTruck])
     setEditingTruck(newTruck.id)
@@ -227,6 +224,12 @@ export default function PrintRoomPage() {
                     <span className="text-gray-700 font-medium">Live Movement</span>
                   </div>
                 </Link>
+                <Link href="/trucks" onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    <Truck className="w-5 h-5 text-gray-600" />
+                    <span className="text-gray-700 font-medium">Truck Database</span>
+                  </div>
+                </Link>
                 <Link href="/admin" onClick={() => setMenuOpen(false)}>
                   <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                     <Shield className="w-5 h-5 text-gray-600" />
@@ -327,7 +330,7 @@ export default function PrintRoomPage() {
                   <div key={truck.id} className="border rounded-lg p-4 bg-white">
                     {editingTruck === truck.id ? (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           <div>
                             <Label className="text-gray-900">Truck Number</Label>
                             <Input
@@ -378,22 +381,6 @@ export default function PrintRoomPage() {
                                     {route}
                                   </SelectItem>
                                 ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-gray-900">Truck Type</Label>
-                            <Select
-                              value={truck.truckType}
-                              onValueChange={(value: TruckType) => updateTruck(truck.id, { truckType: value })}
-                            >
-                              <SelectTrigger className="bg-white text-gray-900 border-gray-300">
-                                <SelectValue className="text-gray-900" />
-                              </SelectTrigger>
-                              <SelectContent className="bg-white border-gray-300">
-                                <SelectItem value="Van" className="text-gray-900 hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">Van</SelectItem>
-                                <SelectItem value="Box Truck" className="text-gray-900 hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">Box Truck</SelectItem>
-                                <SelectItem value="Tandem" className="text-gray-900 hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">Tandem</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -490,7 +477,6 @@ export default function PrintRoomPage() {
                             </div>
                             <div className="text-sm text-gray-600">Door {truck.door}</div>
                             <div className="text-sm text-gray-600">{truck.route}</div>
-                            <div className="text-sm text-gray-600">{truck.truckType}</div>
                             <div className="text-sm text-gray-600">Pods: {truck.pods}</div>
                             <div className="text-sm text-gray-600">Pallets: {truck.pallets}</div>
                           </div>
