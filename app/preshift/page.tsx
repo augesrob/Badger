@@ -1,122 +1,72 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { Plus, Trash, Edit, Save, X } from 'lucide-react'
-import Header from '../components/Header'
-import Navigation from '../components/Navigation'
-import { PreShiftTruck, Driver, VanSemiNumber, PrintRoomTruck, stagingDoors, truckTypes } from '@/lib/types'
-import type { TruckType } from '@/lib/types'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Plus, Trash, Edit, Save, Users, Truck } from 'lucide-react'
+
+// Types
+type TruckType = 'Van' | 'Box Truck' | 'Semi Trailer' | 'Semi'
+type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
+
+interface Driver {
+  id: string
+  name: string
+  phone: string
+  tractorNumber: string
+  trailerNumbers: string[]
+  notes: string
+  active: boolean
+}
+
+interface VanSemiNumber {
+  id: string
+  number: string
+  type: 'Van' | 'Semi'
+  inUse: boolean
+}
+
+interface StagedTruck {
+  id: string
+  truckNumber: string
+  door: string
+  position: number
+  truckType: TruckType
+  route: Route
+}
+
+const stagingDoors = Array.from({ length: 11 }, (_, i) => (18 + i).toString())
+const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Semi Trailer', 'Semi']
+const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledonia', '5-Chippewa Falls']
+
+const routeColors: Record<Route, string> = {
+  '1-Fond Du Lac': 'bg-blue-500',
+  '2-Green Bay': 'bg-green-500',
+  '3-Wausau': 'bg-purple-500',
+  '4-Caledonia': 'bg-orange-500',
+  '5-Chippewa Falls': 'bg-red-500'
+}
 
 export default function PreShiftPage() {
-  const [preShiftTrucks, setPreShiftTrucks] = useState<PreShiftTruck[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [vanSemiNumbers, setVanSemiNumbers] = useState<VanSemiNumber[]>([])
-  const [printRoomTrucks, setPrintRoomTrucks] = useState<PrintRoomTruck[]>([])
-  const [editingPreShiftTruck, setEditingPreShiftTruck] = useState<string | null>(null)
+  const [stagedTrucks, setStagedTrucks] = useState<StagedTruck[]>([])
   const [editingDriver, setEditingDriver] = useState<string | null>(null)
   const [newDriverForm, setNewDriverForm] = useState(false)
-  const [newVanSemiForm, setNewVanSemiForm] = useState(false)
   const [newVanSemiNumber, setNewVanSemiNumber] = useState('')
   const [newVanSemiType, setNewVanSemiType] = useState<'Van' | 'Semi'>('Van')
-  const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('syncing')
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [pendingSave, setPendingSave] = useState(false)
 
-  const loadFromServer = async () => {
-    try {
-      setSyncStatus('syncing')
-      const response = await fetch('/api/data')
-      if (!response.ok) throw new Error('Failed to load data')
-      
-      const data = await response.json()
-      setPreShiftTrucks(data.preShiftTrucks || [])
-      setDrivers(data.drivers || [])
-      setVanSemiNumbers(data.vanSemiNumbers || [])
-      setPrintRoomTrucks(data.printRoomTrucks || [])
-      setSyncStatus('connected')
-      setIsLoaded(true)
-    } catch (error) {
-      console.error('Error loading data:', error)
-      setSyncStatus('error')
-      if (!isLoaded) setIsLoaded(true)
-    }
-  }
-
-  const saveToServer = async () => {
-    if (pendingSave) return
-    
-    try {
-      setPendingSave(true)
-      setSyncStatus('syncing')
-      
-      const currentData = await fetch('/api/data').then(r => r.json())
-      
-      const response = await fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...currentData,
-          preShiftTrucks,
-          drivers,
-          vanSemiNumbers
-        })
-      })
-      
-      if (!response.ok) throw new Error('Failed to save data')
-      setSyncStatus('connected')
-    } catch (error) {
-      console.error('Error saving data:', error)
-      setSyncStatus('error')
-    } finally {
-      setPendingSave(false)
-    }
-  }
-
-  useEffect(() => {
-    loadFromServer()
-  }, [])
-
-  useEffect(() => {
-    if (!isLoaded) return
-    const timeoutId = setTimeout(() => {
-      saveToServer()
-    }, 1000)
-    return () => clearTimeout(timeoutId)
-  }, [preShiftTrucks, drivers, vanSemiNumbers, isLoaded])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadFromServer()
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const addPreShiftTruck = (door: string, position: number) => {
-    const newTruck: PreShiftTruck = {
-      id: Date.now().toString(),
-      truckNumber: '',
-      stagingDoor: door,
-      stagingPosition: position,
-      truckType: 'Van',
-      route: '1-Fond Du Lac',
-      notes: '',
-      lastUpdated: Date.now()
-    }
-    setPreShiftTrucks([...preShiftTrucks, newTruck])
-    setEditingPreShiftTruck(newTruck.id)
-  }
-
-  const updatePreShiftTruck = (id: string, updates: Partial<PreShiftTruck>) => {
-    setPreShiftTrucks(preShiftTrucks.map(t => 
-      t.id === id ? { ...t, ...updates, lastUpdated: Date.now() } : t
-    ))
-  }
-
-  const deletePreShiftTruck = (id: string) => {
-    setPreShiftTrucks(preShiftTrucks.filter(t => t.id !== id))
-    if (editingPreShiftTruck === id) setEditingPreShiftTruck(null)
-  }
-
+  // Add driver
   const addDriver = () => {
     const newDriver: Driver = {
       id: Date.now().toString(),
@@ -132,17 +82,19 @@ export default function PreShiftPage() {
     setNewDriverForm(false)
   }
 
+  // Update driver
   const updateDriver = (id: string, updates: Partial<Driver>) => {
     setDrivers(drivers.map(d => 
       d.id === id ? { ...d, ...updates } : d
     ))
   }
 
+  // Delete driver
   const deleteDriver = (id: string) => {
     setDrivers(drivers.filter(d => d.id !== id))
-    if (editingDriver === id) setEditingDriver(null)
   }
 
+  // Add van/semi number
   const addVanSemiNumber = () => {
     if (!newVanSemiNumber.trim()) return
     const newVanSemi: VanSemiNumber = {
@@ -153,567 +105,411 @@ export default function PreShiftPage() {
     }
     setVanSemiNumbers([...vanSemiNumbers, newVanSemi])
     setNewVanSemiNumber('')
-    setNewVanSemiForm(false)
   }
 
+  // Delete van/semi number
   const deleteVanSemiNumber = (id: string) => {
-    setVanSemiNumbers(vanSemiNumbers.filter(vs => vs.id !== id))
+    setVanSemiNumbers(vanSemiNumbers.filter(v => v.id !== id))
+  }
+
+  // Toggle van/semi in use
+  const toggleVanSemiInUse = (id: string) => {
+    setVanSemiNumbers(vanSemiNumbers.map(v =>
+      v.id === id ? { ...v, inUse: !v.inUse } : v
+    ))
+  }
+
+  // Add staged truck
+  const addStagedTruck = (door: string) => {
+    const doorTrucks = stagedTrucks.filter(t => t.door === door)
+    const nextPosition = doorTrucks.length + 1
+    if (nextPosition > 4) return // Max 4 positions per door
+
+    const newTruck: StagedTruck = {
+      id: Date.now().toString(),
+      truckNumber: '',
+      door,
+      position: nextPosition,
+      truckType: 'Van',
+      route: '1-Fond Du Lac'
+    }
+    setStagedTrucks([...stagedTrucks, newTruck])
+  }
+
+  // Update staged truck
+  const updateStagedTruck = (id: string, updates: Partial<StagedTruck>) => {
+    setStagedTrucks(stagedTrucks.map(t =>
+      t.id === id ? { ...t, ...updates } : t
+    ))
+  }
+
+  // Delete staged truck
+  const deleteStagedTruck = (id: string) => {
+    setStagedTrucks(stagedTrucks.filter(t => t.id !== id))
+  }
+
+  // Get trucks for a specific door
+  const getTrucksForDoor = (door: string) => {
+    return stagedTrucks
+      .filter(t => t.door === door)
+      .sort((a, b) => a.position - b.position)
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', color: '#111827' }}>
-      <Header syncStatus={syncStatus} />
-      <Navigation />
-      
-      <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '1.5rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Driver Management */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Driver & Equipment Database</h2>
-              <button
-                onClick={() => setNewDriverForm(true)}
-                style={{
-                  backgroundColor: '#2563eb',
-                  color: 'white',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '0.375rem',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.875rem',
-                  fontWeight: '500'
-                }}
-              >
-                <Plus style={{ width: '1rem', height: '1rem' }} />
-                Add Driver
-              </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center gap-3">
+            <Users className="w-8 h-8 text-blue-600" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">PreShift Setup</h1>
+              <p className="text-sm text-gray-500">Configure initial truck positions and driver assignments</p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Driver Management */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Driver & Equipment Database</CardTitle>
+              <Button onClick={() => setNewDriverForm(true)} size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Driver
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
             {newDriverForm && (
-              <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f3f4f6', borderRadius: '0.375rem' }}>
-                <button
-                  onClick={addDriver}
-                  style={{
-                    width: '100%',
-                    backgroundColor: '#2563eb',
-                    color: 'white',
-                    padding: '0.75rem',
-                    borderRadius: '0.375rem',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: '500'
-                  }}
-                >
+              <div className="mb-4">
+                <Button onClick={addDriver} className="w-full">
                   Create New Driver Profile
-                </button>
+                </Button>
               </div>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="space-y-4">
               {drivers.map(driver => (
-                <div key={driver.id} style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem' }}>
+                <div key={driver.id} className="border rounded-lg p-4">
                   {editingDriver === driver.id ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Full Name</label>
-                          <input
-                            type="text"
+                          <Label>Full Name</Label>
+                          <Input
                             value={driver.name}
                             onChange={(e) => updateDriver(driver.id, { name: e.target.value })}
-                            placeholder="John Doe"
-                            style={{
-                              width: '100%',
-                              padding: '0.5rem',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '0.375rem',
-                              fontSize: '0.875rem',
-                              color: '#111827',
-                              backgroundColor: 'white'
-                            }}
+                            placeholder="Driver name"
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Phone</label>
-                          <input
-                            type="text"
+                          <Label>Phone Number</Label>
+                          <Input
                             value={driver.phone}
                             onChange={(e) => updateDriver(driver.id, { phone: e.target.value })}
                             placeholder="(555) 555-5555"
-                            style={{
-                              width: '100%',
-                              padding: '0.5rem',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '0.375rem',
-                              fontSize: '0.875rem',
-                              color: '#111827',
-                              backgroundColor: 'white'
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Tractor #</label>
-                          <input
-                            type="text"
-                            value={driver.tractorNumber}
-                            onChange={(e) => updateDriver(driver.id, { tractorNumber: e.target.value })}
-                            placeholder="T-123"
-                            style={{
-                              width: '100%',
-                              padding: '0.5rem',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '0.375rem',
-                              fontSize: '0.875rem',
-                              color: '#111827',
-                              backgroundColor: 'white'
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 1</label>
-                          <input
-                            type="text"
-                            value={driver.trailer1}
-                            onChange={(e) => updateDriver(driver.id, { trailer1: e.target.value })}
-                            placeholder="TR-001"
-                            style={{
-                              width: '100%',
-                              padding: '0.5rem',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '0.375rem',
-                              fontSize: '0.875rem',
-                              color: '#111827',
-                              backgroundColor: 'white'
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 2</label>
-                          <input
-                            type="text"
-                            value={driver.trailer2}
-                            onChange={(e) => updateDriver(driver.id, { trailer2: e.target.value })}
-                            placeholder="TR-002"
-                            style={{
-                              width: '100%',
-                              padding: '0.5rem',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '0.375rem',
-                              fontSize: '0.875rem',
-                              color: '#111827',
-                              backgroundColor: 'white'
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 3</label>
-                          <input
-                            type="text"
-                            value={driver.trailer3}
-                            onChange={(e) => updateDriver(driver.id, { trailer3: e.target.value })}
-                            placeholder="TR-003"
-                            style={{
-                              width: '100%',
-                              padding: '0.5rem',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '0.375rem',
-                              fontSize: '0.875rem',
-                              color: '#111827',
-                              backgroundColor: 'white'
-                            }}
                           />
                         </div>
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Notes</label>
-                        <textarea
-                          value={driver.notes}
-                          onChange={(e) => updateDriver(driver.id, { notes: e.target.value })}
-                          rows={2}
-                          placeholder="Availability, time off, special circumstances..."
-                          style={{
-                            width: '100%',
-                            padding: '0.5rem',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '0.375rem',
-                            fontSize: '0.875rem',
-                            resize: 'vertical',
-                            color: '#111827',
-                            backgroundColor: 'white'
-                          }}
+                        <Label>Tractor Number</Label>
+                        <Input
+                          value={driver.tractorNumber}
+                          onChange={(e) => updateDriver(driver.id, { tractorNumber: e.target.value })}
+                          placeholder="Tractor #"
                         />
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                          onClick={() => setEditingDriver(null)}
-                          style={{
-                            backgroundColor: '#2563eb',
-                            color: 'white',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.375rem',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            fontSize: '0.875rem'
-                          }}
-                        >
-                          <Save style={{ width: '1rem', height: '1rem' }} />
+                      <div>
+                        <Label>Trailer Numbers (comma separated)</Label>
+                        <Input
+                          value={driver.trailerNumbers.join(', ')}
+                          onChange={(e) => updateDriver(driver.id, { 
+                            trailerNumbers: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                          })}
+                          placeholder="Trailer1, Trailer2, Trailer3..."
+                        />
+                      </div>
+                      <div>
+                        <Label>Notes</Label>
+                        <Textarea
+                          value={driver.notes}
+                          onChange={(e) => updateDriver(driver.id, { notes: e.target.value })}
+                          placeholder="Availability, time off, special circumstances..."
+                          rows={2}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={() => setEditingDriver(null)} size="sm">
+                          <Save className="w-4 h-4 mr-2" />
                           Save
-                        </button>
-                        <button
+                        </Button>
+                        <Button 
                           onClick={() => updateDriver(driver.id, { active: !driver.active })}
-                          style={{
-                            backgroundColor: driver.active ? '#6b7280' : '#16a34a',
-                            color: 'white',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.375rem',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '0.875rem'
-                          }}
+                          variant={driver.active ? "outline" : "default"}
+                          size="sm"
                         >
                           {driver.active ? 'Set Inactive' : 'Set Active'}
-                        </button>
-                        <button
-                          onClick={() => deleteDriver(driver.id)}
-                          style={{
-                            backgroundColor: '#dc2626',
-                            color: 'white',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.375rem',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            fontSize: '0.875rem'
-                          }}
-                        >
-                          <Trash style={{ width: '1rem', height: '1rem' }} />
+                        </Button>
+                        <Button onClick={() => deleteDriver(driver.id)} variant="destructive" size="sm">
+                          <Trash className="w-4 h-4 mr-2" />
                           Delete
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                        <div style={{
-                          backgroundColor: driver.active ? '#16a34a' : '#6b7280',
-                          color: 'white',
-                          borderRadius: '0.25rem',
-                          padding: '0.25rem 0.75rem',
-                          fontWeight: 'bold'
-                        }}>
-                          {driver.name || 'New Driver'}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-4">
+                          <div className={`${driver.active ? 'bg-green-500' : 'bg-gray-400'} text-white rounded px-3 py-1 font-bold`}>
+                            {driver.name || 'New Driver'}
+                          </div>
+                          <div className="text-sm text-gray-600">{driver.phone}</div>
+                          <div className="text-sm text-gray-600">Tractor: {driver.tractorNumber}</div>
+                          <div className="text-sm text-gray-600">
+                            Trailers: {driver.trailerNumbers.length > 0 ? driver.trailerNumbers.join(', ') : 'None'}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{driver.phone}</div>
-                        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Tractor: {driver.tractorNumber}</div>
-                        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                          Trailers: {[driver.trailer1, driver.trailer2, driver.trailer3].filter(Boolean).join(', ') || 'None'}
-                        </div>
+                        {driver.notes && (
+                          <div className="text-sm text-gray-500 mt-2">{driver.notes}</div>
+                        )}
                       </div>
-                      <button
-                        onClick={() => setEditingDriver(driver.id)}
-                        style={{
-                          backgroundColor: 'transparent',
-                          border: '1px solid #d1d5db',
-                          padding: '0.5rem',
-                          borderRadius: '0.375rem',
-                          cursor: 'pointer',
-                          color: '#6b7280'
-                        }}
-                      >
-                        <Edit style={{ width: '1rem', height: '1rem' }} />
-                      </button>
+                      <Button onClick={() => setEditingDriver(driver.id)} variant="outline" size="sm">
+                        <Edit className="w-4 h-4" />
+                      </Button>
                     </div>
                   )}
                 </div>
               ))}
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Van/Semi Classification */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Van/Semi Number Classification</h2>
-              <button
-                onClick={() => setNewVanSemiForm(true)}
-                style={{
-                  backgroundColor: '#2563eb',
-                  color: 'white',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '0.375rem',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.875rem',
-                  fontWeight: '500'
-                }}
-              >
-                <Plus style={{ width: '1rem', height: '1rem' }} />
-                Add Number
-              </button>
-            </div>
-            {newVanSemiForm && (
-              <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f3f4f6', borderRadius: '0.375rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '0.5rem', alignItems: 'end' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Truck Number</label>
-                    <input
-                      type="text"
-                      value={newVanSemiNumber}
-                      onChange={(e) => setNewVanSemiNumber(e.target.value)}
-                      placeholder="151"
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '0.375rem',
-                        fontSize: '0.875rem',
-                        color: '#111827',
-                        backgroundColor: 'white'
-                      }}
-                    />
+        {/* Van/Semi Number Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Van & Semi Number Tracking</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <Input
+                    value={newVanSemiNumber}
+                    onChange={(e) => setNewVanSemiNumber(e.target.value)}
+                    placeholder="Enter van or semi number..."
+                    onKeyPress={(e) => e.key === 'Enter' && addVanSemiNumber()}
+                  />
+                </div>
+                <Select
+                  value={newVanSemiType}
+                  onValueChange={(value: 'Van' | 'Semi') => setNewVanSemiType(value)}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Van">Van</SelectItem>
+                    <SelectItem value="Semi">Semi</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={addVanSemiNumber}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold mb-2">Vans</h3>
+                  <div className="space-y-2">
+                    {vanSemiNumbers.filter(v => v.type === 'Van').map(van => (
+                      <div key={van.id} className="flex items-center justify-between border rounded p-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${van.inUse ? 'bg-red-500' : 'bg-green-500'}`} />
+                          <span className="font-medium">{van.number}</span>
+                          <span className="text-sm text-gray-500">{van.inUse ? 'In Use' : 'Available'}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => toggleVanSemiInUse(van.id)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            {van.inUse ? 'Mark Available' : 'Mark In Use'}
+                          </Button>
+                          <Button
+                            onClick={() => deleteVanSemiNumber(van.id)}
+                            variant="destructive"
+                            size="sm"
+                          >
+                            <Trash className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Type</label>
-                    <select
-                      value={newVanSemiType}
-                      onChange={(e) => setNewVanSemiType(e.target.value as 'Van' | 'Semi')}
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '0.375rem',
-                        fontSize: '0.875rem',
-                        color: '#111827',
-                        backgroundColor: 'white'
-                      }}
-                    >
-                      <option value="Van">Van</option>
-                      <option value="Semi">Semi</option>
-                    </select>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Semis</h3>
+                  <div className="space-y-2">
+                    {vanSemiNumbers.filter(v => v.type === 'Semi').map(semi => (
+                      <div key={semi.id} className="flex items-center justify-between border rounded p-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${semi.inUse ? 'bg-red-500' : 'bg-green-500'}`} />
+                          <span className="font-medium">{semi.number}</span>
+                          <span className="text-sm text-gray-500">{semi.inUse ? 'In Use' : 'Available'}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => toggleVanSemiInUse(semi.id)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            {semi.inUse ? 'Mark Available' : 'Mark In Use'}
+                          </Button>
+                          <Button
+                            onClick={() => deleteVanSemiNumber(semi.id)}
+                            variant="destructive"
+                            size="sm"
+                          >
+                            <Trash className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <button
-                    onClick={addVanSemiNumber}
-                    style={{
-                      backgroundColor: '#2563eb',
-                      color: 'white',
-                      padding: '0.5rem 1rem',
-                      borderRadius: '0.375rem',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      fontWeight: '500'
-                    }}
-                  >
-                    Add
-                  </button>
                 </div>
               </div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.5rem' }}>
-              {vanSemiNumbers.map(vs => (
-                <div key={vs.id} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.5rem',
-                  backgroundColor: vs.type === 'Van' ? '#dbeafe' : '#fef3c7',
-                  borderRadius: '0.375rem'
-                }}>
-                  <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>{vs.number} ({vs.type})</span>
-                  <button
-                    onClick={() => deleteVanSemiNumber(vs.id)}
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: '#6b7280',
-                      padding: '0.25rem'
-                    }}
-                  >
-                    <X style={{ width: '0.875rem', height: '0.875rem' }} />
-                  </button>
-                </div>
-              ))}
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Staging Doors */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Staging Doors (18-28)</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+        {/* Staging Doors */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Staging Doors (18-28) - Position Management</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {stagingDoors.map(door => {
-                const doorTrucks = preShiftTrucks
-                  .filter(t => t.stagingDoor === door)
-                  .sort((a, b) => a.stagingPosition - b.stagingPosition)
+                const doorTrucks = getTrucksForDoor(door)
                 
                 return (
-                  <div key={door} style={{ border: '2px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem' }}>
-                    <div style={{ textAlign: 'center', fontWeight: 'bold', marginBottom: '0.75rem', fontSize: '1.125rem', color: '#111827' }}>
-                      Door {door}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div key={door} className="border-2 border-gray-300 rounded-lg p-4">
+                    <div className="text-center font-bold mb-3 text-lg">Door {door}</div>
+                    <div className="space-y-2">
                       {[1, 2, 3, 4].map(position => {
-                        const truck = doorTrucks.find(t => t.stagingPosition === position)
+                        const truck = doorTrucks.find(t => t.position === position)
                         return (
-                          <div key={position} style={{ border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.5rem' }}>
-                            <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+                          <div key={position} className="border rounded p-2">
+                            <div className="text-xs text-gray-500 mb-1">
                               Position {position} {position === 1 ? '(Front)' : position === 4 ? '(Back)' : ''}
                             </div>
                             {truck ? (
-                              editingPreShiftTruck === truck.id ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                  <input
-                                    type="text"
-                                    value={truck.truckNumber}
-                                    onChange={(e) => updatePreShiftTruck(truck.id, { truckNumber: e.target.value })}
-                                    placeholder="Truck #"
-                                    style={{
-                                      width: '100%',
-                                      padding: '0.375rem',
-                                      border: '1px solid #d1d5db',
-                                      borderRadius: '0.25rem',
-                                      fontSize: '0.75rem',
-                                      color: '#111827',
-                                      backgroundColor: 'white'
-                                    }}
-                                  />
-                                  <select
+                              <div className="space-y-2">
+                                <Input
+                                  value={truck.truckNumber}
+                                  onChange={(e) => updateStagedTruck(truck.id, { truckNumber: e.target.value })}
+                                  placeholder="Truck #"
+                                  className="text-sm"
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Select
                                     value={truck.truckType}
-                                    onChange={(e) => updatePreShiftTruck(truck.id, { truckType: e.target.value as TruckType })}
-                                    style={{
-                                      width: '100%',
-                                      padding: '0.375rem',
-                                      border: '1px solid #d1d5db',
-                                      borderRadius: '0.25rem',
-                                      fontSize: '0.75rem',
-                                      color: '#111827',
-                                      backgroundColor: 'white'
-                                    }}
+                                    onValueChange={(value: TruckType) => updateStagedTruck(truck.id, { truckType: value })}
                                   >
-                                    {truckTypes.map(type => (
-                                      <option key={type} value={type}>{type}</option>
-                                    ))}
-                                  </select>
-                                  <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                    <button
-                                      onClick={() => setEditingPreShiftTruck(null)}
-                                      style={{
-                                        flex: 1,
-                                        backgroundColor: '#2563eb',
-                                        color: 'white',
-                                        padding: '0.25rem',
-                                        borderRadius: '0.25rem',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        fontSize: '0.75rem'
-                                      }}
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      onClick={() => deletePreShiftTruck(truck.id)}
-                                      style={{
-                                        backgroundColor: '#dc2626',
-                                        color: 'white',
-                                        padding: '0.25rem 0.5rem',
-                                        borderRadius: '0.25rem',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        fontSize: '0.75rem'
-                                      }}
-                                    >
-                                      <Trash style={{ width: '0.75rem', height: '0.75rem' }} />
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                  <div>
-                                    <div style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#111827' }}>
-                                      {truck.truckNumber}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                      {truck.truckType}
-                                    </div>
-                                  </div>
-                                  <button
-                                    onClick={() => setEditingPreShiftTruck(truck.id)}
-                                    style={{
-                                      backgroundColor: 'transparent',
-                                      border: '1px solid #d1d5db',
-                                      padding: '0.25rem',
-                                      borderRadius: '0.25rem',
-                                      cursor: 'pointer',
-                                      color: '#6b7280'
-                                    }}
+                                    <SelectTrigger className="text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {truckTypes.map(type => (
+                                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Select
+                                    value={truck.route}
+                                    onValueChange={(value: Route) => updateStagedTruck(truck.id, { route: value })}
                                   >
-                                    <Edit style={{ width: '0.75rem', height: '0.75rem' }} />
-                                  </button>
+                                    <SelectTrigger className="text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {routes.map(route => (
+                                        <SelectItem key={route} value={route}>{route.split('-')[0]}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 </div>
-                              )
+                                <Button
+                                  onClick={() => deleteStagedTruck(truck.id)}
+                                  variant="destructive"
+                                  size="sm"
+                                  className="w-full"
+                                >
+                                  <Trash className="w-4 h-4 mr-2" />
+                                  Remove
+                                </Button>
+                              </div>
                             ) : (
-                              <button
-                                onClick={() => addPreShiftTruck(door, position)}
-                                style={{
-                                  width: '100%',
-                                  backgroundColor: '#f3f4f6',
-                                  color: '#6b7280',
-                                  padding: '0.5rem',
-                                  borderRadius: '0.25rem',
-                                  border: '1px dashed #d1d5db',
-                                  cursor: 'pointer',
-                                  fontSize: '0.75rem'
-                                }}
-                              >
-                                + Add Truck
-                              </button>
+                              <div className="bg-gray-100 rounded p-2 text-center text-sm text-gray-400">
+                                Empty
+                              </div>
                             )}
                           </div>
                         )
                       })}
                     </div>
+                    <Button 
+                      onClick={() => addStagedTruck(door)}
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      disabled={doorTrucks.length >= 4}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Truck
+                    </Button>
                   </div>
                 )
               })}
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Summary */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>PreShift Status Summary</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-              <div style={{ backgroundColor: '#dbeafe', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e40af' }}>{printRoomTrucks.length}</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#1e40af' }}>Total Trucks</div>
+        {/* PreShift Status Summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle>PreShift Status Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-blue-100 rounded-lg p-4 text-center">
+                <div className="text-3xl font-bold text-blue-700">{stagedTrucks.length}</div>
+                <div className="text-sm font-medium text-blue-600">Total Staged Trucks</div>
               </div>
-              <div style={{ backgroundColor: '#dcfce7', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#15803d' }}>{preShiftTrucks.length}</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#15803d' }}>Staged Trucks</div>
-              </div>
-              <div style={{ backgroundColor: '#fae8ff', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#7e22ce' }}>{drivers.filter(d => d.active).length}</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#7e22ce' }}>Active Drivers</div>
-              </div>
-              <div style={{ backgroundColor: '#fed7aa', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#c2410c' }}>
-                  {drivers.reduce((sum, d) => sum + [d.trailer1, d.trailer2, d.trailer3].filter(Boolean).length, 0)}
+              <div className="bg-green-100 rounded-lg p-4 text-center">
+                <div className="text-3xl font-bold text-green-700">
+                  {vanSemiNumbers.filter(v => !v.inUse).length}
                 </div>
-                <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#c2410c' }}>Total Trailers</div>
+                <div className="text-sm font-medium text-green-600">Available Vans/Semis</div>
+              </div>
+              <div className="bg-purple-100 rounded-lg p-4 text-center">
+                <div className="text-3xl font-bold text-purple-700">{drivers.filter(d => d.active).length}</div>
+                <div className="text-sm font-medium text-purple-600">Active Drivers</div>
+              </div>
+              <div className="bg-orange-100 rounded-lg p-4 text-center">
+                <div className="text-3xl font-bold text-orange-700">
+                  {drivers.reduce((sum, d) => sum + d.trailerNumbers.length, 0)}
+                </div>
+                <div className="text-sm font-medium text-orange-600">Total Trailers</div>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
