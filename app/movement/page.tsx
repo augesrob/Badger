@@ -14,7 +14,7 @@ import {
   doorStatusOptions,
   getRouteColor, 
   getTruckStatusColor 
-} from '../lib/types'
+} from '@/lib/types'
 import type { Route, TruckStatus, DoorStatus, TruckType } from '@/lib/types'
 
 export default function MovementPage() {
