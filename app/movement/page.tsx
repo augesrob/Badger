@@ -131,6 +131,7 @@ export default function MovementPage() {
       const baseTruckNumber = printTruck.truckNumber.replace(/-\d+$/, '')
       
       newMovementTrucks[printTruck.truckNumber] = {
+        id: printTruck.id,
         truckNumber: printTruck.truckNumber,
         door: printTruck.door,
         route: printTruck.route,
