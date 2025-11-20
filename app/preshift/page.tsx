@@ -123,9 +123,7 @@ export default function PreShiftPage() {
       name: '',
       phone: '',
       tractorNumber: '',
-      trailer1: '',
-      trailer2: '',
-      trailer3: '',
+      trailerNumbers: [],
       notes: '',
       active: true
     }
