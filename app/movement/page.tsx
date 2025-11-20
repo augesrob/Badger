@@ -142,7 +142,7 @@ export default function MovementPage() {
         status: existingMovement?.status || (preShiftTruck ? 'Ready' : 'Missing'),
         doorStatus: existingMovement?.doorStatus || 'Loading',
         ignored: existingMovement?.ignored || false,
-        trailerNumber: trailerNumber,
+        trailerNumber?: string,
         lastUpdated: Date.now()
       }
     })
