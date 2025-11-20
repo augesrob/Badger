@@ -31,7 +31,8 @@
     "lucide-react": "^0.468.0",
     "@vercel/blob": "^0.23.0",
     "tailwind-merge": "^2.5.5",
-    "date-fns": "^3.0.0"
+    "date-fns": "^3.0.0",
+    "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
