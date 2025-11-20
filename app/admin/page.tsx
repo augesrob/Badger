@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Truck, Users, Activity, Plus, Trash, Edit, Save, Clock, Settings, Menu, Home } from 'lucide-react'
+import { Truck, Users, Activity, Plus, Trash, Edit, Save, Clock, Settings, Menu } from 'lucide-react'
 
 type TruckType = 'Van' | 'Box Truck' | 'Semi Trailer' | 'Semi'
 
@@ -22,16 +22,6 @@ interface TruckDatabaseEntry {
   truckNumber: string
   truckType: TruckType
   transmission: 'Automatic' | 'Manual'
-  notes: string
-  active: boolean
-}
-
-interface Driver {
-  id: string
-  name: string
-  phone: string
-  tractorNumber: string
-  trailerNumbers: string[]
   notes: string
   active: boolean
 }
@@ -49,16 +39,13 @@ const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Semi Trailer', 'Semi']
 
 export default function AdminPage() {
   const [truckDatabase, setTruckDatabase] = useState<TruckDatabaseEntry[]>([])
-  const [drivers, setDrivers] = useState<Driver[]>([])
   const [adminSettings, setAdminSettings] = useState<AdminSettings>({
     dailyResetEnabled: false,
     resetTime: '00:00'
   })
   const [customResetTime, setCustomResetTime] = useState('')
   const [editingTruckDb, setEditingTruckDb] = useState<string | null>(null)
-  const [editingDriver, setEditingDriver] = useState<string | null>(null)
   const [newTruckDbForm, setNewTruckDbForm] = useState(false)
-  const [newDriverForm, setNewDriverForm] = useState(false)
 
   // Add truck to database
   const addTruckToDatabase = () => {
@@ -85,34 +72,6 @@ export default function AdminPage() {
   // Delete truck from database
   const deleteTruckFromDatabase = (id: string) => {
     setTruckDatabase(truckDatabase.filter(t => t.id !== id))
-  }
-
-  // Add driver
-  const addDriver = () => {
-    const newDriver: Driver = {
-      id: Date.now().toString(),
-      name: '',
-      phone: '',
-      tractorNumber: '',
-      trailerNumbers: [],
-      notes: '',
-      active: true
-    }
-    setDrivers([...drivers, newDriver])
-    setEditingDriver(newDriver.id)
-    setNewDriverForm(false)
-  }
-
-  // Update driver
-  const updateDriver = (id: string, updates: Partial<Driver>) => {
-    setDrivers(drivers.map(d => 
-      d.id === id ? { ...d, ...updates } : d
-    ))
-  }
-
-  // Delete driver
-  const deleteDriver = (id: string) => {
-    setDrivers(drivers.filter(d => d.id !== id))
   }
 
   // Format time for display
@@ -227,22 +186,22 @@ export default function AdminPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* Daily Reset Settings */}
-        <Card>
-          <CardHeader>
+        <Card className="border-2 border-gray-200">
+          <CardHeader className="bg-gray-50 border-b">
             <CardTitle className="flex items-center gap-2 text-gray-900">
-              <Clock className="w-5 h-5" />
+              <Clock className="w-5 h-5 text-blue-600" />
               Daily Reset Configuration
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 pt-6">
             <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border-2 border-blue-300">
               <div>
                 <div className="font-semibold text-lg text-gray-900">Enable Daily Reset</div>
                 <div className="text-sm text-gray-700 mt-1">
                   Automatically clear Print Room, PreShift, and Live View data at scheduled time
                 </div>
-                <div className="text-xs text-red-600 font-medium mt-2">
-                  ⚠️ Semi Tractor & Trailer Database will NEVER be deleted
+                <div className="text-xs text-red-700 font-medium mt-2 bg-red-50 px-2 py-1 rounded inline-block">
+                  ⚠️ Semi Tractor & Trailer Database on PreShift page is protected
                 </div>
               </div>
               <Button
@@ -250,9 +209,12 @@ export default function AdminPage() {
                   ...adminSettings,
                   dailyResetEnabled: !adminSettings.dailyResetEnabled
                 })}
-                variant={adminSettings.dailyResetEnabled ? "default" : "outline"}
+                className={`min-w-[120px] font-bold text-white ${
+                  adminSettings.dailyResetEnabled 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-gray-600 hover:bg-gray-700'
+                }`}
                 size="lg"
-                className="min-w-[120px] font-bold"
               >
                 {adminSettings.dailyResetEnabled ? 'ENABLED' : 'DISABLED'}
               </Button>
@@ -268,7 +230,7 @@ export default function AdminPage() {
                   
                   <div className="grid grid-cols-3 gap-4 mb-4">
                     <div>
-                      <Label className="text-gray-900 font-medium">Hour</Label>
+                      <Label className="text-gray-900 font-medium mb-2 block">Hour</Label>
                       <Select
                         value={hours12.toString()}
                         onValueChange={(value) => {
@@ -276,19 +238,21 @@ export default function AdminPage() {
                           setAdminSettings({ ...adminSettings, resetTime: newTime })
                         }}
                       >
-                        <SelectTrigger className="border-2">
-                          <SelectValue />
+                        <SelectTrigger className="border-2 border-gray-300 bg-white">
+                          <SelectValue className="text-gray-900" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white border-2 border-gray-300">
                           {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
-                            <SelectItem key={h} value={h.toString()}>{h}</SelectItem>
+                            <SelectItem key={h} value={h.toString()} className="text-gray-900 hover:bg-blue-50">
+                              {h}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                     
                     <div>
-                      <Label className="text-gray-900 font-medium">Minute</Label>
+                      <Label className="text-gray-900 font-medium mb-2 block">Minute</Label>
                       <Select
                         value={minutes.toString()}
                         onValueChange={(value) => {
@@ -296,12 +260,12 @@ export default function AdminPage() {
                           setAdminSettings({ ...adminSettings, resetTime: newTime })
                         }}
                       >
-                        <SelectTrigger className="border-2">
-                          <SelectValue />
+                        <SelectTrigger className="border-2 border-gray-300 bg-white">
+                          <SelectValue className="text-gray-900" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white border-2 border-gray-300 max-h-60">
                           {Array.from({ length: 60 }, (_, i) => i).map(m => (
-                            <SelectItem key={m} value={m.toString()}>
+                            <SelectItem key={m} value={m.toString()} className="text-gray-900 hover:bg-blue-50">
                               {m.toString().padStart(2, '0')}
                             </SelectItem>
                           ))}
@@ -310,7 +274,7 @@ export default function AdminPage() {
                     </div>
                     
                     <div>
-                      <Label className="text-gray-900 font-medium">Period</Label>
+                      <Label className="text-gray-900 font-medium mb-2 block">Period</Label>
                       <Select
                         value={period}
                         onValueChange={(value: 'AM' | 'PM') => {
@@ -318,31 +282,30 @@ export default function AdminPage() {
                           setAdminSettings({ ...adminSettings, resetTime: newTime })
                         }}
                       >
-                        <SelectTrigger className="border-2">
-                          <SelectValue />
+                        <SelectTrigger className="border-2 border-gray-300 bg-white">
+                          <SelectValue className="text-gray-900" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="AM">AM</SelectItem>
-                          <SelectItem value="PM">PM</SelectItem>
+                        <SelectContent className="bg-white border-2 border-gray-300">
+                          <SelectItem value="AM" className="text-gray-900 hover:bg-blue-50">AM</SelectItem>
+                          <SelectItem value="PM" className="text-gray-900 hover:bg-blue-50">PM</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
 
                   <div className="mb-4">
-                    <Label className="text-gray-900 font-medium">Or Enter Custom Time</Label>
+                    <Label className="text-gray-900 font-medium mb-2 block">Or Enter Custom Time</Label>
                     <p className="text-xs text-gray-600 mb-2">Format: HH:MM AM/PM or HH:MM (24-hour)</p>
                     <div className="flex gap-2">
                       <Input
                         value={customResetTime}
                         onChange={(e) => setCustomResetTime(e.target.value)}
                         placeholder="e.g., 11:30 PM or 23:30"
-                        className="border-2"
+                        className="border-2 border-gray-300 bg-white text-gray-900"
                       />
                       <Button 
                         onClick={handleSetCustomTime}
-                        variant="outline"
-                        className="min-w-[100px] border-2 font-bold"
+                        className="min-w-[100px] border-2 font-bold bg-blue-600 hover:bg-blue-700 text-white"
                       >
                         Set Time
                       </Button>
@@ -374,33 +337,31 @@ export default function AdminPage() {
                     alert('Print Room data has been reset!')
                   }
                 }}
-                variant="destructive"
-                className="w-full font-bold"
+                className="w-full font-bold bg-red-600 hover:bg-red-700 text-white"
                 size="lg"
               >
                 Reset Print Room
               </Button>
               {adminSettings.lastPrintRoomReset && (
-                <p className="text-xs text-gray-600 text-center">
+                <p className="text-xs text-gray-700 text-center">
                   Last reset: {new Date(adminSettings.lastPrintRoomReset).toLocaleString()}
                 </p>
               )}
 
               <Button
                 onClick={() => {
-                  if (window.confirm('Reset PreShift data? This will clear all staging door positions.')) {
+                  if (window.confirm('Reset PreShift data? This will clear all staging door positions.\n\nSemi Tractor & Trailer Database will NOT be affected.')) {
                     setAdminSettings({ ...adminSettings, lastPreShiftReset: Date.now() })
-                    alert('PreShift data has been reset!')
+                    alert('PreShift data has been reset!\n\nSemi Tractor & Trailer Database preserved.')
                   }
                 }}
-                variant="destructive"
-                className="w-full font-bold"
+                className="w-full font-bold bg-red-600 hover:bg-red-700 text-white"
                 size="lg"
               >
                 Reset PreShift Setup
               </Button>
               {adminSettings.lastPreShiftReset && (
-                <p className="text-xs text-gray-600 text-center">
+                <p className="text-xs text-gray-700 text-center">
                   Last reset: {new Date(adminSettings.lastPreShiftReset).toLocaleString()}
                 </p>
               )}
@@ -412,14 +373,13 @@ export default function AdminPage() {
                     alert('Live View data has been reset!')
                   }
                 }}
-                variant="destructive"
-                className="w-full font-bold"
+                className="w-full font-bold bg-red-600 hover:bg-red-700 text-white"
                 size="lg"
               >
                 Reset Live Movement
               </Button>
               {adminSettings.lastLiveViewReset && (
-                <p className="text-xs text-gray-600 text-center">
+                <p className="text-xs text-gray-700 text-center">
                   Last reset: {new Date(adminSettings.lastLiveViewReset).toLocaleString()}
                 </p>
               )}
@@ -438,8 +398,7 @@ export default function AdminPage() {
                       alert('All operational data has been reset!\n\nSemi Tractor & Trailer Database preserved.')
                     }
                   }}
-                  variant="destructive"
-                  className="w-full font-bold bg-red-600 hover:bg-red-700"
+                  className="w-full font-bold bg-red-700 hover:bg-red-800 text-white"
                   size="lg"
                 >
                   ⚠️ RESET ALL (Except Semi Database)
@@ -449,150 +408,15 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
-        {/* Semi Tractor & Trailer Database */}
-        <Card className="border-2 border-purple-300">
-          <CardHeader className="bg-purple-50">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-gray-900 flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Semi Tractor & Trailer Database
-                </CardTitle>
-                <p className="text-sm text-purple-700 font-medium mt-1">
-                  🔒 Protected - Never deleted by reset operations
-                </p>
-              </div>
-              <Button onClick={() => setNewDriverForm(true)} size="sm" className="font-bold">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Driver
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            {newDriverForm && (
-              <div className="mb-4">
-                <Button onClick={addDriver} className="w-full font-bold" size="lg">
-                  Create New Driver Profile
-                </Button>
-              </div>
-            )}
-            
-            {drivers.length === 0 ? (
-              <div className="text-center py-8 text-gray-600">
-                <Users className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                <p className="text-lg font-medium text-gray-900">No drivers in database</p>
-                <p className="text-sm text-gray-600 mt-1">Click "Add Driver" to create your first entry</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {drivers.map(driver => (
-                  <div key={driver.id} className="border-2 rounded-lg p-4 bg-white">
-                    {editingDriver === driver.id ? (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-gray-900 font-medium">Full Name</Label>
-                            <Input
-                              value={driver.name}
-                              onChange={(e) => updateDriver(driver.id, { name: e.target.value })}
-                              placeholder="Driver name"
-                              className="border-2"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-gray-900 font-medium">Phone Number</Label>
-                            <Input
-                              value={driver.phone}
-                              onChange={(e) => updateDriver(driver.id, { phone: e.target.value })}
-                              placeholder="(555) 555-5555"
-                              className="border-2"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-gray-900 font-medium">Tractor Number</Label>
-                          <Input
-                            value={driver.tractorNumber}
-                            onChange={(e) => updateDriver(driver.id, { tractorNumber: e.target.value })}
-                            placeholder="Tractor #"
-                            className="border-2"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-gray-900 font-medium">Trailer Numbers (comma separated)</Label>
-                          <Input
-                            value={driver.trailerNumbers.join(', ')}
-                            onChange={(e) => updateDriver(driver.id, { 
-                              trailerNumbers: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-                            })}
-                            placeholder="Trailer1, Trailer2, Trailer3..."
-                            className="border-2"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-gray-900 font-medium">Notes</Label>
-                          <Textarea
-                            value={driver.notes}
-                            onChange={(e) => updateDriver(driver.id, { notes: e.target.value })}
-                            placeholder="Availability, time off, special circumstances..."
-                            rows={2}
-                            className="border-2"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button onClick={() => setEditingDriver(null)} size="sm" className="font-bold">
-                            <Save className="w-4 h-4 mr-2" />
-                            Save
-                          </Button>
-                          <Button 
-                            onClick={() => updateDriver(driver.id, { active: !driver.active })}
-                            variant={driver.active ? "outline" : "default"}
-                            size="sm"
-                            className="font-bold border-2"
-                          >
-                            {driver.active ? 'Set Inactive' : 'Set Active'}
-                          </Button>
-                          <Button onClick={() => deleteDriver(driver.id)} variant="destructive" size="sm" className="font-bold">
-                            <Trash className="w-4 h-4 mr-2" />
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-4 flex-wrap">
-                            <div className={`${driver.active ? 'bg-green-500' : 'bg-gray-400'} text-white rounded px-3 py-1 font-bold`}>
-                              {driver.name || 'New Driver'}
-                            </div>
-                            <div className="text-sm text-gray-700 font-medium">{driver.phone}</div>
-                            <div className="text-sm text-gray-700 font-medium">Tractor: {driver.tractorNumber}</div>
-                            <div className="text-sm text-gray-700 font-medium">
-                              Trailers: {driver.trailerNumbers.length > 0 ? driver.trailerNumbers.join(', ') : 'None'}
-                            </div>
-                          </div>
-                          {driver.notes && (
-                            <div className="text-sm text-gray-600 mt-2">{driver.notes}</div>
-                          )}
-                        </div>
-                        <Button onClick={() => setEditingDriver(driver.id)} variant="outline" size="sm" className="font-bold border-2">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Truck Database Management */}
         <Card className="border-2 border-blue-300">
-          <CardHeader className="bg-blue-50">
+          <CardHeader className="bg-blue-50 border-b">
             <div className="flex items-center justify-between">
               <CardTitle className="text-gray-900">Truck Database (Vans & Box Trucks)</CardTitle>
-              <Button onClick={() => setNewTruckDbForm(true)} size="sm" className="font-bold">
+              <Button 
+                onClick={() => setNewTruckDbForm(true)} 
+                className="font-bold bg-blue-600 hover:bg-blue-700 text-white"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Truck
               </Button>
@@ -601,14 +425,19 @@ export default function AdminPage() {
           <CardContent className="pt-6">
             {newTruckDbForm && (
               <div className="mb-4">
-                <Button onClick={addTruckToDatabase} className="w-full font-bold" size="lg">
+                <Button 
+                  onClick={addTruckToDatabase} 
+                  className="w-full font-bold bg-green-600 hover:bg-green-700 text-white" 
+                  size="lg"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
                   Create New Truck Entry
                 </Button>
               </div>
             )}
             
             {truckDatabase.length === 0 ? (
-              <div className="text-center py-8 text-gray-600">
+              <div className="text-center py-8">
                 <Truck className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                 <p className="text-lg font-medium text-gray-900">No trucks in database</p>
                 <p className="text-sm text-gray-600 mt-1">Click "Add Truck" to create your first entry</p>
@@ -616,75 +445,85 @@ export default function AdminPage() {
             ) : (
               <div className="space-y-4">
                 {truckDatabase.map(truck => (
-                  <div key={truck.id} className="border-2 rounded-lg p-4 bg-white">
+                  <div key={truck.id} className="border-2 border-gray-300 rounded-lg p-4 bg-white">
                     {editingTruckDb === truck.id ? (
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label className="text-gray-900 font-medium">Truck Number</Label>
+                            <Label className="text-gray-900 font-medium mb-2 block">Truck Number</Label>
                             <Input
                               value={truck.truckNumber}
                               onChange={(e) => updateTruckInDatabase(truck.id, { truckNumber: e.target.value })}
                               placeholder="Truck #"
-                              className="border-2"
+                              className="border-2 border-gray-300 bg-white text-gray-900"
                             />
                           </div>
                           <div>
-                            <Label className="text-gray-900 font-medium">Truck Type</Label>
+                            <Label className="text-gray-900 font-medium mb-2 block">Truck Type</Label>
                             <Select
                               value={truck.truckType}
                               onValueChange={(value: TruckType) => updateTruckInDatabase(truck.id, { truckType: value })}
                             >
-                              <SelectTrigger className="border-2">
-                                <SelectValue />
+                              <SelectTrigger className="border-2 border-gray-300 bg-white">
+                                <SelectValue className="text-gray-900" />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="bg-white border-2 border-gray-300">
                                 {truckTypes.map(type => (
-                                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                                  <SelectItem key={type} value={type} className="text-gray-900 hover:bg-blue-50">
+                                    {type}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           </div>
                         </div>
                         <div>
-                          <Label className="text-gray-900 font-medium">Transmission</Label>
+                          <Label className="text-gray-900 font-medium mb-2 block">Transmission</Label>
                           <Select
                             value={truck.transmission}
                             onValueChange={(value: 'Automatic' | 'Manual') => updateTruckInDatabase(truck.id, { transmission: value })}
                           >
-                            <SelectTrigger className="border-2">
-                              <SelectValue />
+                            <SelectTrigger className="border-2 border-gray-300 bg-white">
+                              <SelectValue className="text-gray-900" />
                             </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Automatic">Automatic</SelectItem>
-                              <SelectItem value="Manual">Manual</SelectItem>
+                            <SelectContent className="bg-white border-2 border-gray-300">
+                              <SelectItem value="Automatic" className="text-gray-900 hover:bg-blue-50">Automatic</SelectItem>
+                              <SelectItem value="Manual" className="text-gray-900 hover:bg-blue-50">Manual</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                         <div>
-                          <Label className="text-gray-900 font-medium">Notes</Label>
+                          <Label className="text-gray-900 font-medium mb-2 block">Notes</Label>
                           <Textarea
                             value={truck.notes}
                             onChange={(e) => updateTruckInDatabase(truck.id, { notes: e.target.value })}
                             placeholder="Additional information..."
                             rows={2}
-                            className="border-2"
+                            className="border-2 border-gray-300 bg-white text-gray-900"
                           />
                         </div>
                         <div className="flex gap-2">
-                          <Button onClick={() => setEditingTruckDb(null)} size="sm" className="font-bold">
+                          <Button 
+                            onClick={() => setEditingTruckDb(null)} 
+                            className="font-bold bg-green-600 hover:bg-green-700 text-white"
+                          >
                             <Save className="w-4 h-4 mr-2" />
                             Save
                           </Button>
                           <Button 
                             onClick={() => updateTruckInDatabase(truck.id, { active: !truck.active })}
-                            variant={truck.active ? "outline" : "default"}
-                            size="sm"
-                            className="font-bold border-2"
+                            className={`font-bold border-2 ${
+                              truck.active 
+                                ? 'bg-white hover:bg-gray-100 text-gray-900 border-gray-300' 
+                                : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
+                            }`}
                           >
                             {truck.active ? 'Set Inactive' : 'Set Active'}
                           </Button>
-                          <Button onClick={() => deleteTruckFromDatabase(truck.id)} variant="destructive" size="sm" className="font-bold">
+                          <Button 
+                            onClick={() => deleteTruckFromDatabase(truck.id)} 
+                            className="font-bold bg-red-600 hover:bg-red-700 text-white"
+                          >
                             <Trash className="w-4 h-4 mr-2" />
                             Delete
                           </Button>
@@ -694,17 +533,20 @@ export default function AdminPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-4">
-                            <div className={`${truck.active ? 'bg-blue-500' : 'bg-gray-400'} text-white rounded px-3 py-1 font-bold`}>
+                            <div className={`${truck.active ? 'bg-blue-600' : 'bg-gray-500'} text-white rounded px-3 py-1 font-bold`}>
                               {truck.truckNumber || 'New Truck'}
                             </div>
-                            <div className="text-sm text-gray-700 font-medium">{truck.truckType}</div>
-                            <div className="text-sm text-gray-700 font-medium">{truck.transmission}</div>
+                            <div className="text-sm text-gray-900 font-medium">{truck.truckType}</div>
+                            <div className="text-sm text-gray-900 font-medium">{truck.transmission}</div>
                           </div>
                           {truck.notes && (
-                            <div className="text-sm text-gray-600 mt-2">{truck.notes}</div>
+                            <div className="text-sm text-gray-700 mt-2">{truck.notes}</div>
                           )}
                         </div>
-                        <Button onClick={() => setEditingTruckDb(truck.id)} variant="outline" size="sm" className="font-bold border-2">
+                        <Button 
+                          onClick={() => setEditingTruckDb(truck.id)} 
+                          className="font-bold border-2 bg-white hover:bg-gray-100 text-gray-900 border-gray-300"
+                        >
                           <Edit className="w-4 h-4" />
                         </Button>
                       </div>
@@ -718,11 +560,11 @@ export default function AdminPage() {
 
         {/* System Statistics */}
         <Card className="border-2 border-gray-300">
-          <CardHeader>
+          <CardHeader className="bg-gray-50 border-b">
             <CardTitle className="text-gray-900">System Statistics</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="bg-blue-100 rounded-lg p-4 text-center border-2 border-blue-300">
                 <div className="text-3xl font-bold text-blue-700">{truckDatabase.length}</div>
                 <div className="text-sm font-bold text-blue-900">Total Trucks</div>
@@ -733,15 +575,11 @@ export default function AdminPage() {
                 </div>
                 <div className="text-sm font-bold text-green-900">Active Trucks</div>
               </div>
-              <div className="bg-purple-100 rounded-lg p-4 text-center border-2 border-purple-300">
-                <div className="text-3xl font-bold text-purple-700">{drivers.length}</div>
-                <div className="text-sm font-bold text-purple-900">Total Drivers</div>
-              </div>
               <div className="bg-orange-100 rounded-lg p-4 text-center border-2 border-orange-300">
                 <div className="text-3xl font-bold text-orange-700">
-                  {drivers.filter(d => d.active).length}
+                  {truckDatabase.filter(t => !t.active).length}
                 </div>
-                <div className="text-sm font-bold text-orange-900">Active Drivers</div>
+                <div className="text-sm font-bold text-orange-900">Inactive Trucks</div>
               </div>
             </div>
           </CardContent>
