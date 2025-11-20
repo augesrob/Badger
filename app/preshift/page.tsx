@@ -6,6 +6,7 @@ import Header from '../components/Header'
 import Navigation from '../components/Navigation'
 import { PreShiftTruck, Driver, VanSemiNumber, PrintRoomTruck, stagingDoors, truckTypes } from '../lib/types'
 import type { TruckType } from '../lib/types'
+import { ... } from '@/lib/types'
 
 export default function PreShiftPage() {
   const [preShiftTrucks, setPreShiftTrucks] = useState<PreShiftTruck[]>([])
