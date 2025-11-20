@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,11 +13,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus, Trash, Edit, Save, Users, Home } from 'lucide-react'
+import { Truck, Plus, Trash, Edit, Save, Menu, Home, X, Users, Activity } from 'lucide-react'
 import Link from 'next/link'
 
-type TruckType = 'Van' | 'Box Truck' | 'Semi Trailer' | 'Semi'
 type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
+type TruckType = 'Van' | 'Box Truck' | 'Semi Trailer' | 'Semi'
+
+interface TruckData {
+  id: string
+  truckNumber: string
+  door: string
+  route: Route
+  pods: number
+  pallets: number
+  notes: string
+  batch: number
+  truckType: TruckType
+  stagingDoor?: string
+  stagingPosition?: number
+}
 
 interface Driver {
   id: string
@@ -29,18 +43,10 @@ interface Driver {
   active: boolean
 }
 
-interface StagedTruck {
-  id: string
-  truckNumber: string
-  door: string
-  position: number
-  truckType: TruckType
-  route: Route
-}
-
 const stagingDoors = Array.from({ length: 11 }, (_, i) => (18 + i).toString())
-const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Semi Trailer', 'Semi']
+const loadingDoors = ['13A', '13B', '14A', '14B', '15A', '15B']
 const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledonia', '5-Chippewa Falls']
+const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Semi Trailer', 'Semi']
 
 const routeColors: Record<Route, string> = {
   '1-Fond Du Lac': 'bg-blue-500',
@@ -51,11 +57,60 @@ const routeColors: Record<Route, string> = {
 }
 
 export default function PreShiftPage() {
+  const [trucks, setTrucks] = useState<TruckData[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
-  const [stagedTrucks, setStagedTrucks] = useState<StagedTruck[]>([])
-  const [editingDriver, setEditingDriver] = useState<string | null>(null)
   const [editingTruck, setEditingTruck] = useState<string | null>(null)
+  const [editingDriver, setEditingDriver] = useState<string | null>(null)
   const [newDriverForm, setNewDriverForm] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('syncing')
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  useEffect(() => {
+    if (trucks.length > 0 || drivers.length > 0) {
+      saveData()
+    }
+  }, [trucks, drivers])
+
+  const loadData = async () => {
+    try {
+      setSyncStatus('syncing')
+      const response = await fetch('/api/trucks')
+      if (response.ok) {
+        const data = await response.json()
+        setTrucks(data.trucks || [])
+        setDrivers(data.drivers || [])
+        setSyncStatus('connected')
+      } else {
+        setSyncStatus('error')
+      }
+    } catch (error) {
+      console.error('Error loading data:', error)
+      setSyncStatus('error')
+    }
+  }
+
+  const saveData = async () => {
+    try {
+      setSyncStatus('syncing')
+      const response = await fetch('/api/trucks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trucks, drivers })
+      })
+      if (response.ok) {
+        setSyncStatus('connected')
+      } else {
+        setSyncStatus('error')
+      }
+    } catch (error) {
+      console.error('Error saving data:', error)
+      setSyncStatus('error')
+    }
+  }
 
   const addDriver = () => {
     const newDriver: Driver = {
@@ -80,29 +135,31 @@ export default function PreShiftPage() {
     setDrivers(drivers.filter(d => d.id !== id))
   }
 
-  const addStagedTruck = (door: string, position: number) => {
-    const newTruck: StagedTruck = {
+  const addTruckToStaging = (door: string) => {
+    const doorTrucks = trucks.filter(t => t.stagingDoor === door)
+    const newTruck: TruckData = {
       id: Date.now().toString(),
       truckNumber: '',
-      door,
-      position,
+      door: loadingDoors[0],
+      route: '1-Fond Du Lac',
+      pods: 0,
+      pallets: 0,
+      notes: '',
+      batch: 1,
       truckType: 'Van',
-      route: '1-Fond Du Lac'
+      stagingDoor: door,
+      stagingPosition: doorTrucks.length + 1
     }
-    setStagedTrucks([...stagedTrucks, newTruck])
+    setTrucks([...trucks, newTruck])
     setEditingTruck(newTruck.id)
   }
 
-  const updateStagedTruck = (id: string, updates: Partial<StagedTruck>) => {
-    setStagedTrucks(stagedTrucks.map(t => t.id === id ? { ...t, ...updates } : t))
+  const updateTruck = (id: string, updates: Partial<TruckData>) => {
+    setTrucks(trucks.map(t => t.id === id ? { ...t, ...updates } : t))
   }
 
-  const deleteStagedTruck = (id: string) => {
-    setStagedTrucks(stagedTrucks.filter(t => t.id !== id))
-  }
-
-  const getTrucksForDoor = (door: string) => {
-    return stagedTrucks.filter(t => t.door === door).sort((a, b) => a.position - b.position)
+  const deleteTruck = (id: string) => {
+    setTrucks(trucks.filter(t => t.id !== id))
   }
 
   return (
@@ -112,21 +169,79 @@ export default function PreShiftPage() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Users className="w-8 h-8 text-green-600" />
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                {menuOpen ? (
+                  <X className="w-6 h-6 text-gray-700" />
+                ) : (
+                  <Menu className="w-6 h-6 text-gray-700" />
+                )}
+              </button>
+              <Users className="w-8 h-8 text-blue-600" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">PreShift Setup</h1>
-                <p className="text-sm text-gray-500">Configure initial positions and driver assignments</p>
+                <p className="text-sm text-gray-500">Driver assignments and staging positions</p>
               </div>
             </div>
-            <Link href="/">
-              <Button variant="outline" size="sm">
-                <Home className="w-4 h-4 mr-2" />
-                Home
-              </Button>
-            </Link>
+            <div className="flex items-center gap-4">
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${
+                syncStatus === 'connected' ? 'bg-green-100 text-green-700' :
+                syncStatus === 'syncing' ? 'bg-yellow-100 text-yellow-700' :
+                'bg-red-100 text-red-700'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  syncStatus === 'connected' ? 'bg-green-500' :
+                  syncStatus === 'syncing' ? 'bg-yellow-500' :
+                  'bg-red-500'
+                }`} />
+                <span className="text-sm font-medium capitalize">{syncStatus}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Side Menu */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={() => setMenuOpen(false)}>
+          <div 
+            className="fixed left-0 top-0 h-full w-64 bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Navigation</h2>
+              <nav className="space-y-2">
+                <Link href="/" onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    <Home className="w-5 h-5 text-gray-600" />
+                    <span className="text-gray-700 font-medium">Home</span>
+                  </div>
+                </Link>
+                <Link href="/printroom" onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    <Truck className="w-5 h-5 text-gray-600" />
+                    <span className="text-gray-700 font-medium">Print Room</span>
+                  </div>
+                </Link>
+                <Link href="/preshift" onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 transition-colors cursor-pointer">
+                    <Users className="w-5 h-5 text-blue-600" />
+                    <span className="text-blue-700 font-medium">PreShift Setup</span>
+                  </div>
+                </Link>
+                <Link href="/movement" onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    <Activity className="w-5 h-5 text-gray-600" />
+                    <span className="text-gray-700 font-medium">Live Movement</span>
+                  </div>
+                </Link>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* Driver Management */}
@@ -134,7 +249,10 @@ export default function PreShiftPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-gray-900">Driver & Equipment Database</CardTitle>
-              <Button onClick={() => setNewDriverForm(true)} size="sm">
+              <Button 
+                onClick={() => setNewDriverForm(true)} 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Driver
               </Button>
@@ -143,7 +261,10 @@ export default function PreShiftPage() {
           <CardContent>
             {newDriverForm && (
               <div className="mb-4">
-                <Button onClick={addDriver} className="w-full">
+                <Button 
+                  onClick={addDriver} 
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                >
                   Create New Driver Profile
                 </Button>
               </div>
@@ -160,7 +281,7 @@ export default function PreShiftPage() {
                             value={driver.name}
                             onChange={(e) => updateDriver(driver.id, { name: e.target.value })}
                             placeholder="Driver name"
-                            className="bg-white text-gray-900"
+                            className="bg-white text-gray-900 border-gray-300"
                           />
                         </div>
                         <div>
@@ -169,7 +290,7 @@ export default function PreShiftPage() {
                             value={driver.phone}
                             onChange={(e) => updateDriver(driver.id, { phone: e.target.value })}
                             placeholder="(555) 555-5555"
-                            className="bg-white text-gray-900"
+                            className="bg-white text-gray-900 border-gray-300"
                           />
                         </div>
                       </div>
@@ -179,7 +300,7 @@ export default function PreShiftPage() {
                           value={driver.tractorNumber}
                           onChange={(e) => updateDriver(driver.id, { tractorNumber: e.target.value })}
                           placeholder="Tractor #"
-                          className="bg-white text-gray-900"
+                          className="bg-white text-gray-900 border-gray-300"
                         />
                       </div>
                       <div>
@@ -190,7 +311,7 @@ export default function PreShiftPage() {
                             trailerNumbers: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
                           })}
                           placeholder="Trailer1, Trailer2, Trailer3..."
-                          className="bg-white text-gray-900"
+                          className="bg-white text-gray-900 border-gray-300"
                         />
                       </div>
                       <div>
@@ -200,22 +321,27 @@ export default function PreShiftPage() {
                           onChange={(e) => updateDriver(driver.id, { notes: e.target.value })}
                           placeholder="Availability, time off, special circumstances..."
                           rows={2}
-                          className="bg-white text-gray-900"
+                          className="bg-white text-gray-900 border-gray-300"
                         />
                       </div>
                       <div className="flex gap-2">
-                        <Button onClick={() => setEditingDriver(null)} size="sm">
+                        <Button 
+                          onClick={() => setEditingDriver(null)} 
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
                           <Save className="w-4 h-4 mr-2" />
                           Save
                         </Button>
                         <Button 
                           onClick={() => updateDriver(driver.id, { active: !driver.active })}
-                          variant={driver.active ? "outline" : "default"}
-                          size="sm"
+                          className={driver.active ? "bg-gray-600 hover:bg-gray-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"}
                         >
                           {driver.active ? 'Set Inactive' : 'Set Active'}
                         </Button>
-                        <Button onClick={() => deleteDriver(driver.id)} variant="destructive" size="sm">
+                        <Button 
+                          onClick={() => deleteDriver(driver.id)} 
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                        >
                           <Trash className="w-4 h-4 mr-2" />
                           Delete
                         </Button>
@@ -238,7 +364,10 @@ export default function PreShiftPage() {
                           <div className="text-sm text-gray-500 mt-2">{driver.notes}</div>
                         )}
                       </div>
-                      <Button onClick={() => setEditingDriver(driver.id)} variant="outline" size="sm">
+                      <Button 
+                        onClick={() => setEditingDriver(driver.id)} 
+                        className="bg-gray-200 hover:bg-gray-300 text-gray-900"
+                      >
                         <Edit className="w-4 h-4" />
                       </Button>
                     </div>
@@ -257,95 +386,41 @@ export default function PreShiftPage() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {stagingDoors.map(door => {
-                const doorTrucks = getTrucksForDoor(door)
+                const doorTrucks = trucks
+                  .filter(t => t.stagingDoor === door)
+                  .sort((a, b) => (a.stagingPosition || 0) - (b.stagingPosition || 0))
                 
                 return (
                   <div key={door} className="border-2 border-gray-300 rounded-lg p-4 bg-white">
                     <div className="text-center font-bold mb-3 text-lg text-gray-900">Door {door}</div>
                     <div className="space-y-2">
                       {[1, 2, 3, 4].map(position => {
-                        const truck = doorTrucks.find(t => t.position === position)
+                        const truck = doorTrucks.find(t => t.stagingPosition === position)
                         return (
                           <div key={position} className="border rounded p-2 bg-white">
                             <div className="text-xs text-gray-500 mb-1">
                               Position {position} {position === 1 ? '(Front)' : position === 4 ? '(Back)' : ''}
                             </div>
                             {truck ? (
-                              editingTruck === truck.id ? (
-                                <div className="space-y-2">
-                                  <Input
-                                    value={truck.truckNumber}
-                                    onChange={(e) => updateStagedTruck(truck.id, { truckNumber: e.target.value })}
-                                    placeholder="Truck #"
-                                    className="text-sm bg-white text-gray-900"
-                                  />
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <Select
-                                      value={truck.truckType}
-                                      onValueChange={(value: TruckType) => updateStagedTruck(truck.id, { truckType: value })}
-                                    >
-                                      <SelectTrigger className="text-xs bg-white text-gray-900">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent className="bg-white">
-                                        {truckTypes.map(type => (
-                                          <SelectItem key={type} value={type}>{type}</SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <Select
-                                      value={truck.route}
-                                      onValueChange={(value: Route) => updateStagedTruck(truck.id, { route: value })}
-                                    >
-                                      <SelectTrigger className="text-xs bg-white text-gray-900">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent className="bg-white">
-                                        {routes.map(route => (
-                                          <SelectItem key={route} value={route}>{route.split('-')[0]}</SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      onClick={() => setEditingTruck(null)}
-                                      size="sm"
-                                      className="flex-1"
-                                    >
-                                      <Save className="w-4 h-4 mr-1" />
-                                      Save
-                                    </Button>
-                                    <Button
-                                      onClick={() => deleteStagedTruck(truck.id)}
-                                      variant="destructive"
-                                      size="sm"
-                                    >
-                                      <Trash className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div 
-                                  className={`${routeColors[truck.route]} text-white rounded p-2 cursor-pointer hover:opacity-80`}
-                                  onClick={() => setEditingTruck(truck.id)}
-                                >
-                                  <div className="text-center text-sm font-bold">{truck.truckNumber || 'Click to edit'}</div>
-                                  <div className="text-center text-xs">{truck.truckType}</div>
-                                </div>
-                              )
+                              <div className={`${routeColors[truck.route]} text-white rounded p-2 text-center text-sm font-bold`}>
+                                {truck.truckNumber || 'New'} - {truck.truckType}
+                              </div>
                             ) : (
-                              <div 
-                                className="bg-gray-100 rounded p-2 text-center text-sm text-gray-400 cursor-pointer hover:bg-gray-200 transition-colors"
-                                onClick={() => addStagedTruck(door, position)}
-                              >
-                                Click to add truck
+                              <div className="bg-gray-100 rounded p-2 text-center text-sm text-gray-400">
+                                Empty
                               </div>
                             )}
                           </div>
                         )
                       })}
                     </div>
+                    <Button 
+                      onClick={() => addTruckToStaging(door)}
+                      className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Truck
+                    </Button>
                   </div>
                 )
               })}
@@ -353,7 +428,7 @@ export default function PreShiftPage() {
           </CardContent>
         </Card>
 
-        {/* PreShift Status Summary */}
+        {/* PreShift Status Board */}
         <Card className="bg-white">
           <CardHeader>
             <CardTitle className="text-gray-900">PreShift Status Summary</CardTitle>
@@ -361,14 +436,14 @@ export default function PreShiftPage() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-blue-100 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-blue-700">{stagedTrucks.length}</div>
-                <div className="text-sm font-medium text-blue-600">Total Staged Trucks</div>
+                <div className="text-3xl font-bold text-blue-700">{trucks.length}</div>
+                <div className="text-sm font-medium text-blue-600">Total Trucks</div>
               </div>
               <div className="bg-green-100 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-green-700">
-                  {stagingDoors.length * 4 - stagedTrucks.length}
+                  {trucks.filter(t => t.stagingDoor).length}
                 </div>
-                <div className="text-sm font-medium text-green-600">Available Positions</div>
+                <div className="text-sm font-medium text-green-600">Staged Trucks</div>
               </div>
               <div className="bg-purple-100 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-purple-700">{drivers.filter(d => d.active).length}</div>
