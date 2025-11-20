@@ -15,8 +15,7 @@ import {
   getRouteColor, 
   getTruckStatusColor 
 } from '../lib/types'
-import type { Route, TruckStatus, DoorStatus, TruckType } from '../lib/types'
-import { ... } from '@/lib/types'
+import type { Route, TruckStatus, DoorStatus, TruckType } from '@/lib/types'
 
 export default function MovementPage() {
   const [printRoomTrucks, setPrintRoomTrucks] = useState<PrintRoomTruck[]>([])
