@@ -15,13 +15,13 @@ import {
 } from "@/components/ui/select"
 import { Truck, Users, Activity, Plus, Trash, Edit, Save, Clock, Settings, Menu } from 'lucide-react'
 
-type TruckType = 'Van' | 'Box Truck' | 'Semi Trailer' | 'Semi'
+type TruckType = 'Van' | 'Box Truck' | 'Tandem' | 'Semi Trailer' | 'Semi'
 
 interface TruckDatabaseEntry {
   id: string
   truckNumber: string
   truckType: TruckType
-  transmission: 'Automatic' | 'Manual'
+  transmission?: 'Automatic' | 'Manual'
   notes: string
   active: boolean
 }
@@ -35,7 +35,7 @@ interface AdminSettings {
   lastLiveViewReset?: number
 }
 
-const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Semi Trailer', 'Semi']
+const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Tandem', 'Semi Trailer', 'Semi']
 
 export default function AdminPage() {
   const [truckDatabase, setTruckDatabase] = useState<TruckDatabaseEntry[]>([])
@@ -64,9 +64,20 @@ export default function AdminPage() {
 
   // Update truck in database
   const updateTruckInDatabase = (id: string, updates: Partial<TruckDatabaseEntry>) => {
-    setTruckDatabase(truckDatabase.map(t => 
-      t.id === id ? { ...t, ...updates } : t
-    ))
+    setTruckDatabase(truckDatabase.map(t => {
+      if (t.id === id) {
+        const updated = { ...t, ...updates }
+        // Remove transmission if truck type is Semi Trailer
+        if (updated.truckType === 'Semi Trailer') {
+          delete updated.transmission
+        } else if (!updated.transmission) {
+          // Add default transmission if not a trailer and no transmission set
+          updated.transmission = 'Automatic'
+        }
+        return updated
+      }
+      return t
+    }))
   }
 
   // Delete truck from database
@@ -412,7 +423,7 @@ export default function AdminPage() {
         <Card className="border-2 border-blue-300">
           <CardHeader className="bg-blue-50 border-b">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-gray-900">Truck Database (Vans & Box Trucks)</CardTitle>
+              <CardTitle className="text-gray-900">Truck Database (Vans, Box Trucks & Tandems)</CardTitle>
               <Button 
                 onClick={() => setNewTruckDbForm(true)} 
                 className="font-bold bg-blue-600 hover:bg-blue-700 text-white"
@@ -448,7 +459,7 @@ export default function AdminPage() {
                   <div key={truck.id} className="border-2 border-gray-300 rounded-lg p-4 bg-white">
                     {editingTruckDb === truck.id ? (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className={`grid ${truck.truckType === 'Semi Trailer' ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
                           <div>
                             <Label className="text-gray-900 font-medium mb-2 block">Truck Number</Label>
                             <Input
@@ -477,21 +488,25 @@ export default function AdminPage() {
                             </Select>
                           </div>
                         </div>
-                        <div>
-                          <Label className="text-gray-900 font-medium mb-2 block">Transmission</Label>
-                          <Select
-                            value={truck.transmission}
-                            onValueChange={(value: 'Automatic' | 'Manual') => updateTruckInDatabase(truck.id, { transmission: value })}
-                          >
-                            <SelectTrigger className="border-2 border-gray-300 bg-white text-gray-900">
-                              <SelectValue className="text-gray-900" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white border-2 border-gray-300">
-                              <SelectItem value="Automatic" className="text-gray-900 hover:bg-blue-50 cursor-pointer">Automatic</SelectItem>
-                              <SelectItem value="Manual" className="text-gray-900 hover:bg-blue-50 cursor-pointer">Manual</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        
+                        {truck.truckType !== 'Semi Trailer' && (
+                          <div>
+                            <Label className="text-gray-900 font-medium mb-2 block">Transmission</Label>
+                            <Select
+                              value={truck.transmission || 'Automatic'}
+                              onValueChange={(value: 'Automatic' | 'Manual') => updateTruckInDatabase(truck.id, { transmission: value })}
+                            >
+                              <SelectTrigger className="border-2 border-gray-300 bg-white text-gray-900">
+                                <SelectValue className="text-gray-900" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white border-2 border-gray-300">
+                                <SelectItem value="Automatic" className="text-gray-900 hover:bg-blue-50 cursor-pointer">Automatic</SelectItem>
+                                <SelectItem value="Manual" className="text-gray-900 hover:bg-blue-50 cursor-pointer">Manual</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        
                         <div>
                           <Label className="text-gray-900 font-medium mb-2 block">Notes</Label>
                           <Textarea
@@ -537,7 +552,9 @@ export default function AdminPage() {
                               {truck.truckNumber || 'New Truck'}
                             </div>
                             <div className="text-sm text-gray-900 font-medium">{truck.truckType}</div>
-                            <div className="text-sm text-gray-900 font-medium">{truck.transmission}</div>
+                            {truck.transmission && (
+                              <div className="text-sm text-gray-900 font-medium">{truck.transmission}</div>
+                            )}
                           </div>
                           {truck.notes && (
                             <div className="text-sm text-gray-700 mt-2">{truck.notes}</div>
