@@ -43,6 +43,7 @@ export interface MovementTruck {
   batch: number
   notes: string
   ignored: boolean
+  trailerNumber?: string
   lastUpdated: number
 }
 
