@@ -17,7 +17,7 @@ import { Truck, Plus, Trash, Edit, Save, Menu, Home, X, Users, Activity } from '
 import Link from 'next/link'
 
 type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
-type TruckType = 'Van' | 'Box Truck' | 'Semi Trailer' | 'Semi'
+type TruckType = 'Van' | 'Box Truck' | 'Tandem'
 
 interface TruckData {
   id: string
@@ -46,7 +46,7 @@ interface Driver {
 const stagingDoors = Array.from({ length: 11 }, (_, i) => (18 + i).toString())
 const loadingDoors = ['13A', '13B', '14A', '14B', '15A', '15B']
 const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledonia', '5-Chippewa Falls']
-const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Semi Trailer', 'Semi']
+const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Tandem']
 
 const routeColors: Record<Route, string> = {
   '1-Fond Du Lac': 'bg-blue-500',
@@ -118,7 +118,7 @@ export default function PreShiftPage() {
       name: '',
       phone: '',
       tractorNumber: '',
-      trailerNumbers: [],
+      trailerNumbers: ['', '', ''],
       notes: '',
       active: true
     }
@@ -131,6 +131,30 @@ export default function PreShiftPage() {
     setDrivers(drivers.map(d => d.id === id ? { ...d, ...updates } : d))
   }
 
+  const updateDriverTrailer = (driverId: string, index: number, value: string) => {
+    const driver = drivers.find(d => d.id === driverId)
+    if (driver) {
+      const newTrailers = [...driver.trailerNumbers]
+      newTrailers[index] = value
+      updateDriver(driverId, { trailerNumbers: newTrailers })
+    }
+  }
+
+  const addTrailerSlot = (driverId: string) => {
+    const driver = drivers.find(d => d.id === driverId)
+    if (driver) {
+      updateDriver(driverId, { trailerNumbers: [...driver.trailerNumbers, ''] })
+    }
+  }
+
+  const removeTrailerSlot = (driverId: string, index: number) => {
+    const driver = drivers.find(d => d.id === driverId)
+    if (driver && driver.trailerNumbers.length > 1) {
+      const newTrailers = driver.trailerNumbers.filter((_, i) => i !== index)
+      updateDriver(driverId, { trailerNumbers: newTrailers })
+    }
+  }
+
   const deleteDriver = (id: string) => {
     setDrivers(drivers.filter(d => d.id !== id))
   }
@@ -140,16 +164,13 @@ export default function PreShiftPage() {
     
     if (existingTruck) {
       if (truckNumber.trim() === '') {
-        // Delete truck if number is cleared
         setTrucks(trucks.filter(t => t.id !== existingTruck.id))
       } else {
-        // Update existing truck
         setTrucks(trucks.map(t => 
           t.id === existingTruck.id ? { ...t, truckNumber } : t
         ))
       }
     } else if (truckNumber.trim() !== '') {
-      // Create new truck
       const newTruck: TruckData = {
         id: Date.now().toString(),
         truckNumber,
@@ -196,7 +217,7 @@ export default function PreShiftPage() {
               <Users className="w-8 h-8 text-blue-600" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">PreShift Setup</h1>
-                <p className="text-sm text-gray-500">Driver assignments and staging positions</p>
+                <p className="text-sm text-gray-500">Semi driver assignments and staging positions</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -258,11 +279,14 @@ export default function PreShiftPage() {
       )}
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Driver Management */}
+        {/* Driver Management - Semi Tractors & Trailers */}
         <Card className="bg-white">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-gray-900">Driver & Equipment Database</CardTitle>
+              <div>
+                <CardTitle className="text-gray-900">Semi Tractor & Trailer Database</CardTitle>
+                <p className="text-sm text-gray-500 mt-1">Manage semi drivers, tractors, and trailer assignments</p>
+              </div>
               <Button 
                 onClick={() => setNewDriverForm(true)} 
                 className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -279,7 +303,7 @@ export default function PreShiftPage() {
                   onClick={addDriver} 
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
                 >
-                  Create New Driver Profile
+                  Create New Semi Driver Profile
                 </Button>
               </div>
             )}
@@ -290,7 +314,7 @@ export default function PreShiftPage() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-gray-700">Full Name</Label>
+                          <Label className="text-gray-700">Driver Full Name</Label>
                           <Input
                             value={driver.name}
                             onChange={(e) => updateDriver(driver.id, { name: e.target.value })}
@@ -318,15 +342,38 @@ export default function PreShiftPage() {
                         />
                       </div>
                       <div>
-                        <Label className="text-gray-700">Trailer Numbers (comma separated)</Label>
-                        <Input
-                          value={driver.trailerNumbers.join(', ')}
-                          onChange={(e) => updateDriver(driver.id, { 
-                            trailerNumbers: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-                          })}
-                          placeholder="Trailer1, Trailer2, Trailer3..."
-                          className="bg-white text-gray-900 border-gray-300"
-                        />
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-gray-700">Trailer Numbers</Label>
+                          <Button
+                            onClick={() => addTrailerSlot(driver.id)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                            size="sm"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add Trailer
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          {driver.trailerNumbers.map((trailer, index) => (
+                            <div key={index} className="flex gap-2">
+                              <Input
+                                value={trailer}
+                                onChange={(e) => updateDriverTrailer(driver.id, index, e.target.value)}
+                                placeholder={`Trailer ${index + 1} (e.g., 151-${index + 1})`}
+                                className="flex-1 bg-white text-gray-900 border-gray-300"
+                              />
+                              {driver.trailerNumbers.length > 1 && (
+                                <Button
+                                  onClick={() => removeTrailerSlot(driver.id, index)}
+                                  className="bg-red-600 hover:bg-red-700 text-white"
+                                  size="sm"
+                                >
+                                  <Trash className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-gray-700">Notes</Label>
@@ -371,7 +418,9 @@ export default function PreShiftPage() {
                           <div className="text-sm text-gray-600">{driver.phone}</div>
                           <div className="text-sm text-gray-600">Tractor: {driver.tractorNumber}</div>
                           <div className="text-sm text-gray-600">
-                            Trailers: {driver.trailerNumbers.length > 0 ? driver.trailerNumbers.join(', ') : 'None'}
+                            Trailers: {driver.trailerNumbers.filter(t => t.trim()).length > 0 
+                              ? driver.trailerNumbers.filter(t => t.trim()).join(', ') 
+                              : 'None'}
                           </div>
                         </div>
                         {driver.notes && (
@@ -392,10 +441,13 @@ export default function PreShiftPage() {
           </CardContent>
         </Card>
 
-        {/* Staging Doors */}
+        {/* Staging Doors - Box Trucks, Vans, Tandems */}
         <Card className="bg-white">
           <CardHeader>
-            <CardTitle className="text-gray-900">Staging Doors (18-28) - Position Management</CardTitle>
+            <div>
+              <CardTitle className="text-gray-900">Staging Doors (18-28)</CardTitle>
+              <p className="text-sm text-gray-500 mt-1">Box Trucks, Vans, and Tandems - Position Management</p>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -456,7 +508,7 @@ export default function PreShiftPage() {
                                     </div>
                                     
                                     <div>
-                                      <Label className="text-gray-700 text-xs">Truck Type</Label>
+                                      <Label className="text-gray-700 text-xs">Vehicle Type</Label>
                                       <Select
                                         value={truck.truckType}
                                         onValueChange={(value: TruckType) => updateTruck(truck.id, { truckType: value })}
@@ -489,7 +541,7 @@ export default function PreShiftPage() {
                                       size="sm"
                                     >
                                       <Trash className="w-4 h-4 mr-2" />
-                                      Remove Truck
+                                      Remove Vehicle
                                     </Button>
                                   </div>
                                 )}
@@ -527,13 +579,13 @@ export default function PreShiftPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-blue-100 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-blue-700">{trucks.length}</div>
-                <div className="text-sm font-medium text-blue-600">Total Trucks</div>
+                <div className="text-sm font-medium text-blue-600">Total Vehicles</div>
               </div>
               <div className="bg-green-100 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-green-700">
                   {trucks.filter(t => t.stagingDoor).length}
                 </div>
-                <div className="text-sm font-medium text-green-600">Staged Trucks</div>
+                <div className="text-sm font-medium text-green-600">Staged Vehicles</div>
               </div>
               <div className="bg-purple-100 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-purple-700">{drivers.filter(d => d.active).length}</div>
@@ -541,7 +593,7 @@ export default function PreShiftPage() {
               </div>
               <div className="bg-orange-100 rounded-lg p-4 text-center">
                 <div className="text-3xl font-bold text-orange-700">
-                  {drivers.reduce((sum, d) => sum + d.trailerNumbers.length, 0)}
+                  {drivers.reduce((sum, d) => sum + d.trailerNumbers.filter(t => t.trim()).length, 0)}
                 </div>
                 <div className="text-sm font-medium text-orange-600">Total Trailers</div>
               </div>
