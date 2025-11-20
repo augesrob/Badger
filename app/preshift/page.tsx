@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Truck, Plus, Trash, Edit, Save, Menu, Home, X, Users, Activity } from 'lucide-react'
+import { Truck, Plus, Trash, Edit, Save, Menu, Home, X, Users, Activity, Shield } from 'lucide-react'
 import Link from 'next/link'
 
 type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
@@ -71,7 +71,10 @@ export default function PreShiftPage() {
 
   useEffect(() => {
     if (trucks.length > 0 || drivers.length > 0) {
-      saveData()
+      const timeoutId = setTimeout(() => {
+        saveData()
+      }, 1000)
+      return () => clearTimeout(timeoutId)
     }
   }, [trucks, drivers])
 
@@ -101,10 +104,14 @@ export default function PreShiftPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trucks, drivers })
       })
-      if (response.ok) {
+      
+      const result = await response.json()
+      
+      if (response.ok && result.success) {
         setSyncStatus('connected')
       } else {
         setSyncStatus('error')
+        console.error('Save failed:', result.error)
       }
     } catch (error) {
       console.error('Error saving data:', error)
@@ -156,7 +163,9 @@ export default function PreShiftPage() {
   }
 
   const deleteDriver = (id: string) => {
-    setDrivers(drivers.filter(d => d.id !== id))
+    if (confirm('Are you sure you want to delete this driver?')) {
+      setDrivers(drivers.filter(d => d.id !== id))
+    }
   }
 
   const updateTruckNumber = (door: string, position: number, truckNumber: string) => {
@@ -272,6 +281,12 @@ export default function PreShiftPage() {
                     <span className="text-gray-700 font-medium">Live Movement</span>
                   </div>
                 </Link>
+                <Link href="/admin" onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    <Shield className="w-5 h-5 text-gray-600" />
+                    <span className="text-gray-700 font-medium">Admin Settings</span>
+                  </div>
+                </Link>
               </nav>
             </div>
           </div>
@@ -359,7 +374,7 @@ export default function PreShiftPage() {
                               <Input
                                 value={trailer}
                                 onChange={(e) => updateDriverTrailer(driver.id, index, e.target.value)}
-                                placeholder={`Trailer ${index + 1} (e.g., 151-${index + 1})`}
+                                placeholder={`Trailer ${index + 1}`}
                                 className="flex-1 bg-white text-gray-900 border-gray-300"
                               />
                               {driver.trailerNumbers.length > 1 && (
