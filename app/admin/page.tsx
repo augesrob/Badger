@@ -3,205 +3,120 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Truck, Plus, Trash, Edit, Save, Menu, Home, X, Users, Activity, Shield } from 'lucide-react'
+import { Input } from "@/components/ui/input"
+import { Menu, Home, X, Users, Activity, Truck, Shield, Trash, Clock, Save } from 'lucide-react'
 import Link from 'next/link'
 
-type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
-type TruckType = 'Van' | 'Box Truck' | 'Tandem'
-
-interface TruckData {
-  id: string
-  truckNumber: string
-  door: string
-  route: Route
-  pods: number
-  pallets: number
-  notes: string
-  batch: number
-  truckType: TruckType
-  stagingDoor?: string
-  stagingPosition?: number
+interface Settings {
+  autoResetEnabled: boolean
+  autoResetTime: string
+  autoResetPrintRoom: boolean
+  autoResetStaging: boolean
 }
 
-interface Driver {
-  id: string
-  name: string
-  phone: string
-  tractorNumber: string
-  trailerNumbers: string[]
-  notes: string
-  active: boolean
-}
-
-const stagingDoors = Array.from({ length: 11 }, (_, i) => (18 + i).toString())
-const loadingDoors = ['13A', '13B', '14A', '14B', '15A', '15B']
-const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledonia', '5-Chippewa Falls']
-const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Tandem']
-
-const routeColors: Record<Route, string> = {
-  '1-Fond Du Lac': 'bg-blue-500',
-  '2-Green Bay': 'bg-green-500',
-  '3-Wausau': 'bg-purple-500',
-  '4-Caledonia': 'bg-orange-500',
-  '5-Chippewa Falls': 'bg-red-500'
-}
-
-export default function PreShiftPage() {
-  const [trucks, setTrucks] = useState<TruckData[]>([])
-  const [drivers, setDrivers] = useState<Driver[]>([])
-  const [editingDriver, setEditingDriver] = useState<string | null>(null)
-  const [newDriverForm, setNewDriverForm] = useState(false)
+export default function AdminPage() {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('syncing')
-  const [expandedTruck, setExpandedTruck] = useState<string | null>(null)
+  const [settings, setSettings] = useState<Settings>({
+    autoResetEnabled: false,
+    autoResetTime: '00:00',
+    autoResetPrintRoom: false,
+    autoResetStaging: false
+  })
+  const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('connected')
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [saveMessage, setSaveMessage] = useState<string>('')
 
   useEffect(() => {
-    loadData()
+    loadSettings()
   }, [])
 
-  useEffect(() => {
-    if (trucks.length > 0 || drivers.length > 0) {
-      const timeoutId = setTimeout(() => {
-        saveData()
-      }, 1000)
-      return () => clearTimeout(timeoutId)
-    }
-  }, [trucks, drivers])
-
-  const loadData = async () => {
+  const loadSettings = async () => {
     try {
       setSyncStatus('syncing')
       const response = await fetch('/api/trucks')
       if (response.ok) {
         const data = await response.json()
-        setTrucks(data.trucks || [])
-        setDrivers(data.drivers || [])
+        if (data.settings) {
+          setSettings(data.settings)
+        }
         setSyncStatus('connected')
       } else {
         setSyncStatus('error')
       }
     } catch (error) {
-      console.error('Error loading data:', error)
+      console.error('Error loading settings:', error)
       setSyncStatus('error')
     }
   }
 
-  const saveData = async () => {
+  const saveSettings = async () => {
     try {
       setSyncStatus('syncing')
+      setSaveMessage('')
+      
       const response = await fetch('/api/trucks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trucks, drivers })
+        body: JSON.stringify({ settings })
       })
       
       const result = await response.json()
       
       if (response.ok && result.success) {
         setSyncStatus('connected')
+        setSaveMessage('✓ Settings saved successfully!')
+        setTimeout(() => setSaveMessage(''), 3000)
       } else {
         setSyncStatus('error')
-        console.error('Save failed:', result.error)
+        setSaveMessage('✗ Failed to save settings: ' + (result.error || 'Unknown error'))
       }
     } catch (error) {
-      console.error('Error saving data:', error)
+      console.error('Error saving settings:', error)
       setSyncStatus('error')
+      setSaveMessage('✗ Failed to save settings: Network error')
     }
   }
 
-  const addDriver = () => {
-    const newDriver: Driver = {
-      id: Date.now().toString(),
-      name: '',
-      phone: '',
-      tractorNumber: '',
-      trailerNumbers: ['', '', ''],
-      notes: '',
-      active: true
+  const handleDelete = async (target: 'all' | 'printroom' | 'staging') => {
+    if (confirmDelete !== target) {
+      setConfirmDelete(target)
+      setTimeout(() => setConfirmDelete(null), 5000)
+      return
     }
-    setDrivers([...drivers, newDriver])
-    setEditingDriver(newDriver.id)
-    setNewDriverForm(false)
-  }
 
-  const updateDriver = (id: string, updates: Partial<Driver>) => {
-    setDrivers(drivers.map(d => d.id === id ? { ...d, ...updates } : d))
-  }
-
-  const updateDriverTrailer = (driverId: string, index: number, value: string) => {
-    const driver = drivers.find(d => d.id === driverId)
-    if (driver) {
-      const newTrailers = [...driver.trailerNumbers]
-      newTrailers[index] = value
-      updateDriver(driverId, { trailerNumbers: newTrailers })
-    }
-  }
-
-  const addTrailerSlot = (driverId: string) => {
-    const driver = drivers.find(d => d.id === driverId)
-    if (driver) {
-      updateDriver(driverId, { trailerNumbers: [...driver.trailerNumbers, ''] })
-    }
-  }
-
-  const removeTrailerSlot = (driverId: string, index: number) => {
-    const driver = drivers.find(d => d.id === driverId)
-    if (driver && driver.trailerNumbers.length > 1) {
-      const newTrailers = driver.trailerNumbers.filter((_, i) => i !== index)
-      updateDriver(driverId, { trailerNumbers: newTrailers })
-    }
-  }
-
-  const deleteDriver = (id: string) => {
-    setDrivers(drivers.filter(d => d.id !== id))
-  }
-
-  const updateTruckNumber = (door: string, position: number, truckNumber: string) => {
-    const existingTruck = trucks.find(t => t.stagingDoor === door && t.stagingPosition === position)
-    
-    if (existingTruck) {
-      if (truckNumber.trim() === '') {
-        setTrucks(trucks.filter(t => t.id !== existingTruck.id))
+    try {
+      setSyncStatus('syncing')
+      const response = await fetch(`/api/trucks?target=${target}`, {
+        method: 'DELETE'
+      })
+      
+      if (response.ok) {
+        setSyncStatus('connected')
+        setConfirmDelete(null)
+        
+        let message = ''
+        switch (target) {
+          case 'all':
+            message = '✓ Entire database deleted successfully!'
+            break
+          case 'printroom':
+            message = '✓ Print Room data deleted successfully!'
+            break
+          case 'staging':
+            message = '✓ Staging doors (18-28) data deleted successfully!'
+            break
+        }
+        alert(message)
       } else {
-        setTrucks(trucks.map(t => 
-          t.id === existingTruck.id ? { ...t, truckNumber } : t
-        ))
+        setSyncStatus('error')
+        alert('✗ Failed to delete data')
       }
-    } else if (truckNumber.trim() !== '') {
-      const newTruck: TruckData = {
-        id: Date.now().toString(),
-        truckNumber,
-        door: loadingDoors[0],
-        route: '1-Fond Du Lac',
-        pods: 0,
-        pallets: 0,
-        notes: '',
-        batch: 1,
-        truckType: 'Van',
-        stagingDoor: door,
-        stagingPosition: position
-      }
-      setTrucks([...trucks, newTruck])
+    } catch (error) {
+      console.error('Error deleting data:', error)
+      setSyncStatus('error')
+      alert('✗ Failed to delete data')
     }
-  }
-
-  const updateTruck = (id: string, updates: Partial<TruckData>) => {
-    setTrucks(trucks.map(t => t.id === id ? { ...t, ...updates } : t))
-  }
-
-  const deleteTruck = (id: string) => {
-    setTrucks(trucks.filter(t => t.id !== id))
-    setExpandedTruck(null)
   }
 
   return (
@@ -221,10 +136,10 @@ export default function PreShiftPage() {
                   <Menu className="w-6 h-6 text-gray-700" />
                 )}
               </button>
-              <Users className="w-8 h-8 text-blue-600" />
+              <Shield className="w-8 h-8 text-red-600" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">PreShift Setup</h1>
-                <p className="text-sm text-gray-500">Semi driver assignments and staging positions</p>
+                <h1 className="text-2xl font-bold text-gray-900">Admin Settings</h1>
+                <p className="text-sm text-gray-500">System configuration and data management</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -268,9 +183,9 @@ export default function PreShiftPage() {
                   </div>
                 </Link>
                 <Link href="/preshift" onClick={() => setMenuOpen(false)}>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 transition-colors cursor-pointer">
-                    <Users className="w-5 h-5 text-blue-600" />
-                    <span className="text-blue-700 font-medium">PreShift Setup</span>
+                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    <Users className="w-5 h-5 text-gray-600" />
+                    <span className="text-gray-700 font-medium">PreShift Setup</span>
                   </div>
                 </Link>
                 <Link href="/movement" onClick={() => setMenuOpen(false)}>
@@ -280,9 +195,9 @@ export default function PreShiftPage() {
                   </div>
                 </Link>
                 <Link href="/admin" onClick={() => setMenuOpen(false)}>
-                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
-                    <Shield className="w-5 h-5 text-gray-600" />
-                    <span className="text-gray-700 font-medium">Admin Settings</span>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 transition-colors cursor-pointer">
+                    <Shield className="w-5 h-5 text-red-600" />
+                    <span className="text-red-700 font-medium">Admin Settings</span>
                   </div>
                 </Link>
               </nav>
@@ -292,323 +207,272 @@ export default function PreShiftPage() {
       )}
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Driver Management - Semi Tractors & Trailers */}
+        {/* Warning Banner */}
+        <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <Shield className="w-6 h-6 text-red-600" />
+            <div>
+              <h3 className="text-lg font-bold text-red-900">Administrator Access Only</h3>
+              <p className="text-sm text-red-700">These settings can permanently delete data. Use with caution.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Save Message */}
+        {saveMessage && (
+          <div className={`rounded-lg p-4 ${
+            saveMessage.includes('✓') 
+              ? 'bg-green-50 border-2 border-green-200' 
+              : 'bg-red-50 border-2 border-red-200'
+          }`}>
+            <p className={`text-sm font-medium ${
+              saveMessage.includes('✓') ? 'text-green-800' : 'text-red-800'
+            }`}>
+              {saveMessage}
+            </p>
+          </div>
+        )}
+
+        {/* Daily Auto-Reset Settings */}
         <Card className="bg-white">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-gray-900">Semi Tractor & Trailer Database</CardTitle>
-                <p className="text-sm text-gray-500 mt-1">Manage semi drivers, tractors, and trailer assignments</p>
-              </div>
-              <Button 
-                onClick={() => setNewDriverForm(true)} 
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Driver
-              </Button>
+            <div className="flex items-center gap-3">
+              <Clock className="w-6 h-6 text-blue-600" />
+              <CardTitle className="text-gray-900">Daily Auto-Reset Schedule</CardTitle>
             </div>
           </CardHeader>
-          <CardContent>
-            {newDriverForm && (
-              <div className="mb-4">
-                <Button 
-                  onClick={addDriver} 
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                >
-                  Create New Semi Driver Profile
-                </Button>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="autoResetEnabled"
+                checked={settings.autoResetEnabled}
+                onChange={(e) => setSettings({ ...settings, autoResetEnabled: e.target.checked })}
+                className="w-5 h-5 text-blue-600 rounded cursor-pointer"
+              />
+              <Label htmlFor="autoResetEnabled" className="text-gray-900 font-medium cursor-pointer">
+                Enable Daily Auto-Reset
+              </Label>
+            </div>
+
+            {settings.autoResetEnabled && (
+              <div className="ml-8 space-y-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <Label className="text-gray-700">Reset Time (24-hour format)</Label>
+                  <Input
+                    type="time"
+                    value={settings.autoResetTime}
+                    onChange={(e) => setSettings({ ...settings, autoResetTime: e.target.value })}
+                    className="bg-white text-gray-900 border-gray-300 max-w-xs mt-1"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">System will automatically reset at this time daily</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-700 font-medium">What to Reset:</Label>
+                  
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="autoResetPrintRoom"
+                      checked={settings.autoResetPrintRoom}
+                      onChange={(e) => setSettings({ ...settings, autoResetPrintRoom: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                    />
+                    <Label htmlFor="autoResetPrintRoom" className="text-gray-700 cursor-pointer">
+                      Print Room Data (all truck assignments and batches)
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="autoResetStaging"
+                      checked={settings.autoResetStaging}
+                      onChange={(e) => setSettings({ ...settings, autoResetStaging: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                    />
+                    <Label htmlFor="autoResetStaging" className="text-gray-700 cursor-pointer">
+                      Staging Doors 18-28 (box trucks, vans, tandems only)
+                    </Label>
+                  </div>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mt-3">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Protected:</strong> Semi Tractor & Trailer Database will NEVER be auto-deleted. 
+                      This data must be manually managed from the PreShift page.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
-            <div className="space-y-4">
-              {drivers.map(driver => (
-                <div key={driver.id} className="border rounded-lg p-4 bg-white">
-                  {editingDriver === driver.id ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-gray-700">Driver Full Name</Label>
-                          <Input
-                            value={driver.name}
-                            onChange={(e) => updateDriver(driver.id, { name: e.target.value })}
-                            placeholder="Driver name"
-                            className="bg-white text-gray-900 border-gray-300"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-gray-700">Phone Number</Label>
-                          <Input
-                            value={driver.phone}
-                            onChange={(e) => updateDriver(driver.id, { phone: e.target.value })}
-                            placeholder="(555) 555-5555"
-                            className="bg-white text-gray-900 border-gray-300"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-gray-700">Tractor Number</Label>
-                        <Input
-                          value={driver.tractorNumber}
-                          onChange={(e) => updateDriver(driver.id, { tractorNumber: e.target.value })}
-                          placeholder="Tractor #"
-                          className="bg-white text-gray-900 border-gray-300"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="text-gray-700">Trailer Numbers</Label>
-                          <Button
-                            onClick={() => addTrailerSlot(driver.id)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                            size="sm"
-                          >
-                            <Plus className="w-4 h-4 mr-1" />
-                            Add Trailer
-                          </Button>
-                        </div>
-                        <div className="space-y-2">
-                          {driver.trailerNumbers.map((trailer, index) => (
-                            <div key={index} className="flex gap-2">
-                              <Input
-                                value={trailer}
-                                onChange={(e) => updateDriverTrailer(driver.id, index, e.target.value)}
-                                placeholder={`Trailer ${index + 1} (e.g., 151-${index + 1})`}
-                                className="flex-1 bg-white text-gray-900 border-gray-300"
-                              />
-                              {driver.trailerNumbers.length > 1 && (
-                                <Button
-                                  onClick={() => removeTrailerSlot(driver.id, index)}
-                                  className="bg-red-600 hover:bg-red-700 text-white"
-                                  size="sm"
-                                >
-                                  <Trash className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-gray-700">Notes</Label>
-                        <Textarea
-                          value={driver.notes}
-                          onChange={(e) => updateDriver(driver.id, { notes: e.target.value })}
-                          placeholder="Availability, time off, special circumstances..."
-                          rows={2}
-                          className="bg-white text-gray-900 border-gray-300"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={() => setEditingDriver(null)} 
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          <Save className="w-4 h-4 mr-2" />
-                          Save
-                        </Button>
-                        <Button 
-                          onClick={() => updateDriver(driver.id, { active: !driver.active })}
-                          className={driver.active ? "bg-gray-600 hover:bg-gray-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"}
-                        >
-                          {driver.active ? 'Set Inactive' : 'Set Active'}
-                        </Button>
-                        <Button 
-                          onClick={() => deleteDriver(driver.id)} 
-                          className="bg-red-600 hover:bg-red-700 text-white"
-                        >
-                          <Trash className="w-4 h-4 mr-2" />
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-4">
-                          <div className={`${driver.active ? 'bg-green-500' : 'bg-gray-400'} text-white rounded px-3 py-1 font-bold`}>
-                            {driver.name || 'New Driver'}
-                          </div>
-                          <div className="text-sm text-gray-600">{driver.phone}</div>
-                          <div className="text-sm text-gray-600">Tractor: {driver.tractorNumber}</div>
-                          <div className="text-sm text-gray-600">
-                            Trailers: {driver.trailerNumbers.filter(t => t.trim()).length > 0 
-                              ? driver.trailerNumbers.filter(t => t.trim()).join(', ') 
-                              : 'None'}
-                          </div>
-                        </div>
-                        {driver.notes && (
-                          <div className="text-sm text-gray-500 mt-2">{driver.notes}</div>
-                        )}
-                      </div>
-                      <Button 
-                        onClick={() => setEditingDriver(driver.id)} 
-                        className="bg-gray-200 hover:bg-gray-300 text-gray-900"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
+
+            <Button 
+              onClick={saveSettings}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={syncStatus === 'syncing'}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {syncStatus === 'syncing' ? 'Saving...' : 'Save Auto-Reset Settings'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Manual Data Deletion */}
+        <Card className="bg-white border-2 border-red-200">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <Trash className="w-6 h-6 text-red-600" />
+              <CardTitle className="text-gray-900">Manual Data Deletion</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800 font-medium">
+                ⚠️ Warning: These actions cannot be undone. Click twice to confirm deletion.
+              </p>
+            </div>
+
+            {/* Delete Entire Database */}
+            <div className="border-2 border-red-300 rounded-lg p-4 bg-red-50">
+              <h3 className="text-lg font-bold text-red-900 mb-2">Delete Entire Database</h3>
+              <p className="text-sm text-red-700 mb-3">
+                Removes ALL data including Print Room, Staging Doors, and Semi Tractor & Trailer Database. 
+                This is a complete system reset.
+              </p>
+              <Button
+                onClick={() => handleDelete('all')}
+                className={`${
+                  confirmDelete === 'all' 
+                    ? 'bg-red-700 hover:bg-red-800' 
+                    : 'bg-red-600 hover:bg-red-700'
+                } text-white`}
+              >
+                <Trash className="w-4 h-4 mr-2" />
+                {confirmDelete === 'all' ? 'Click Again to Confirm' : 'Delete Entire Database'}
+              </Button>
+              {confirmDelete === 'all' && (
+                <p className="text-xs text-red-600 mt-2">Click the button again within 5 seconds to confirm</p>
+              )}
+            </div>
+
+            {/* Delete Print Room Data */}
+            <div className="border-2 border-orange-300 rounded-lg p-4 bg-orange-50">
+              <h3 className="text-lg font-bold text-orange-900 mb-2">Delete Print Room Data</h3>
+              <p className="text-sm text-orange-700 mb-3">
+                Removes all truck assignments, batches, routes, pods, and pallets from Print Room. 
+                Does not affect PreShift data.
+              </p>
+              <Button
+                onClick={() => handleDelete('printroom')}
+                className={`${
+                  confirmDelete === 'printroom' 
+                    ? 'bg-orange-700 hover:bg-orange-800' 
+                    : 'bg-orange-600 hover:bg-orange-700'
+                } text-white`}
+              >
+                <Trash className="w-4 h-4 mr-2" />
+                {confirmDelete === 'printroom' ? 'Click Again to Confirm' : 'Delete Print Room Data'}
+              </Button>
+              {confirmDelete === 'printroom' && (
+                <p className="text-xs text-orange-600 mt-2">Click the button again within 5 seconds to confirm</p>
+              )}
+            </div>
+
+            {/* Delete Staging Doors Only */}
+            <div className="border-2 border-yellow-300 rounded-lg p-4 bg-yellow-50">
+              <h3 className="text-lg font-bold text-yellow-900 mb-2">Delete Staging Doors (18-28)</h3>
+              <p className="text-sm text-yellow-700 mb-3">
+                Removes only box trucks, vans, and tandems from staging doors 18-28. 
+                <strong> Semi Tractor & Trailer Database is protected and will NOT be deleted.</strong>
+              </p>
+              <Button
+                onClick={() => handleDelete('staging')}
+                className={`${
+                  confirmDelete === 'staging' 
+                    ? 'bg-yellow-700 hover:bg-yellow-800' 
+                    : 'bg-yellow-600 hover:bg-yellow-700'
+                } text-white`}
+              >
+                <Trash className="w-4 h-4 mr-2" />
+                {confirmDelete === 'staging' ? 'Click Again to Confirm' : 'Delete Staging Doors Data'}
+              </Button>
+              {confirmDelete === 'staging' && (
+                <p className="text-xs text-yellow-600 mt-2">Click the button again within 5 seconds to confirm</p>
+              )}
+            </div>
+
+            {/* Protected Data Notice */}
+            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
+              <h3 className="text-lg font-bold text-green-900 mb-2">🛡️ Protected Data</h3>
+              <p className="text-sm text-green-700">
+                <strong>Semi Tractor & Trailer Database</strong> is permanently protected from auto-deletion 
+                and cannot be deleted from this admin page. To manage driver and trailer data, 
+                use the PreShift Setup page.
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Staging Doors - Box Trucks, Vans, Tandems */}
+        {/* System Information */}
         <Card className="bg-white">
           <CardHeader>
-            <div>
-              <CardTitle className="text-gray-900">Staging Doors (18-28)</CardTitle>
-              <p className="text-sm text-gray-500 mt-1">Box Trucks, Vans, and Tandems - Position Management</p>
-            </div>
+            <CardTitle className="text-gray-900">System Information</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {stagingDoors.map(door => {
-                const doorTrucks = trucks
-                  .filter(t => t.stagingDoor === door)
-                  .sort((a, b) => (a.stagingPosition || 0) - (b.stagingPosition || 0))
-                
-                return (
-                  <div key={door} className="border-2 border-gray-300 rounded-lg p-4 bg-white">
-                    <div className="text-center font-bold mb-3 text-lg text-gray-900">Door {door}</div>
-                    <div className="space-y-2">
-                      {[1, 2, 3, 4].map(position => {
-                        const truck = doorTrucks.find(t => t.stagingPosition === position)
-                        const isExpanded = expandedTruck === truck?.id
-                        
-                        return (
-                          <div key={position} className="border rounded p-2 bg-white">
-                            <div className="text-xs text-gray-500 mb-1">
-                              Position {position} {position === 1 ? '(Front)' : position === 4 ? '(Back)' : ''}
-                            </div>
-                            
-                            {truck ? (
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    value={truck.truckNumber}
-                                    onChange={(e) => updateTruckNumber(door, position, e.target.value)}
-                                    placeholder="Truck #"
-                                    className="flex-1 bg-white text-gray-900 border-gray-300 font-bold"
-                                  />
-                                  <Button
-                                    onClick={() => setExpandedTruck(isExpanded ? null : truck.id)}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                                    size="sm"
-                                  >
-                                    {isExpanded ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                                  </Button>
-                                </div>
-                                
-                                {isExpanded && (
-                                  <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded">
-                                    <div>
-                                      <Label className="text-gray-700 text-xs">Route</Label>
-                                      <Select
-                                        value={truck.route}
-                                        onValueChange={(value: Route) => updateTruck(truck.id, { route: value })}
-                                      >
-                                        <SelectTrigger className="bg-white text-gray-900 border-gray-300 h-8 text-sm">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white">
-                                          {routes.map(route => (
-                                            <SelectItem key={route} value={route}>{route}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    
-                                    <div>
-                                      <Label className="text-gray-700 text-xs">Vehicle Type</Label>
-                                      <Select
-                                        value={truck.truckType}
-                                        onValueChange={(value: TruckType) => updateTruck(truck.id, { truckType: value })}
-                                      >
-                                        <SelectTrigger className="bg-white text-gray-900 border-gray-300 h-8 text-sm">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white">
-                                          {truckTypes.map(type => (
-                                            <SelectItem key={type} value={type}>{type}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    
-                                    <div>
-                                      <Label className="text-gray-700 text-xs">Notes</Label>
-                                      <Textarea
-                                        value={truck.notes}
-                                        onChange={(e) => updateTruck(truck.id, { notes: e.target.value })}
-                                        placeholder="Special instructions..."
-                                        rows={2}
-                                        className="bg-white text-gray-900 border-gray-300 text-sm"
-                                      />
-                                    </div>
-                                    
-                                    <Button
-                                      onClick={() => deleteTruck(truck.id)}
-                                      className="w-full bg-red-600 hover:bg-red-700 text-white"
-                                      size="sm"
-                                    >
-                                      <Trash className="w-4 h-4 mr-2" />
-                                      Remove Vehicle
-                                    </Button>
-                                  </div>
-                                )}
-                                
-                                {!isExpanded && (
-                                  <div className={`${routeColors[truck.route]} text-white rounded p-1 text-center text-xs font-medium mt-1`}>
-                                    {truck.route} - {truck.truckType}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <Input
-                                placeholder="Enter truck #"
-                                onChange={(e) => updateTruckNumber(door, position, e.target.value)}
-                                className="bg-white text-gray-900 border-gray-300"
-                              />
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Database Location:</span>
+                <span className="text-gray-900 font-mono">In-Memory Storage</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Auto-Reset Status:</span>
+                <span className={`font-medium ${settings.autoResetEnabled ? 'text-green-600' : 'text-gray-400'}`}>
+                  {settings.autoResetEnabled ? `Enabled (${settings.autoResetTime})` : 'Disabled'}
+                </span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Print Room Auto-Reset:</span>
+                <span className={`font-medium ${settings.autoResetPrintRoom ? 'text-green-600' : 'text-gray-400'}`}>
+                  {settings.autoResetPrintRoom ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Staging Auto-Reset:</span>
+                <span className={`font-medium ${settings.autoResetStaging ? 'text-green-600' : 'text-gray-400'}`}>
+                  {settings.autoResetStaging ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <div className="flex justify-between py-2">
+                <span className="text-gray-600">Protected Data:</span>
+                <span className="text-green-600 font-medium">Semi Tractor & Trailer Database</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* PreShift Status Board */}
-        <Card className="bg-white">
+        {/* Quick Actions Summary */}
+        <Card className="bg-blue-50 border-2 border-blue-200">
           <CardHeader>
-            <CardTitle className="text-gray-900">PreShift Status Summary</CardTitle>
+            <CardTitle className="text-blue-900">Quick Reference Guide</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-blue-100 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-blue-700">{trucks.length}</div>
-                <div className="text-sm font-medium text-blue-600">Total Vehicles</div>
+            <div className="space-y-3 text-sm">
+              <div>
+                <h4 className="font-bold text-blue-900 mb-1">Auto-Reset Settings:</h4>
+                <p className="text-blue-700">Configure daily automatic data resets for Print Room and Staging areas. Semi driver database is always protected.</p>
               </div>
-              <div className="bg-green-100 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-green-700">
-                  {trucks.filter(t => t.stagingDoor).length}
-                </div>
-                <div className="text-sm font-medium text-green-600">Staged Vehicles</div>
+              <div>
+                <h4 className="font-bold text-blue-900 mb-1">Delete Entire Database:</h4>
+                <p className="text-blue-700">Complete system wipe including all trucks, drivers, and trailers. Use only for full system reset.</p>
               </div>
-              <div className="bg-purple-100 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-purple-700">{drivers.filter(d => d.active).length}</div>
-                <div className="text-sm font-medium text-purple-600">Active Drivers</div>
+              <div>
+                <h4 className="font-bold text-blue-900 mb-1">Delete Print Room:</h4>
+                <p className="text-blue-700">Removes only Print Room truck assignments and batches. Preserves PreShift staging data.</p>
               </div>
-              <div className="bg-orange-100 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-orange-700">
-                  {drivers.reduce((sum, d) => sum + d.trailerNumbers.filter(t => t.trim()).length, 0)}
-                </div>
-                <div className="text-sm font-medium text-orange-600">Total Trailers</div>
+              <div>
+                <h4 className="font-bold text-blue-900 mb-1">Delete Staging Doors:</h4>
+                <p className="text-blue-700">Removes box trucks, vans, and tandems from doors 18-28. Semi driver database remains intact.</p>
               </div>
             </div>
           </CardContent>
