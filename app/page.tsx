@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { Truck, Plus, Trash, Edit, Save } from 'lucide-react'
+import { Truck, Plus, Trash, Edit, Save, Users, Activity, Menu, X } from 'lucide-react'
 
 type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
 type TruckType = 'Van' | 'Box Truck' | 'Semi Trailer' | 'Semi'
@@ -25,6 +25,7 @@ interface PreShiftTruck {
   truckNumber: string
   stagingDoor: string
   stagingPosition: number
+  truckType: TruckType
   lastUpdated: number
 }
 
@@ -38,6 +39,7 @@ interface MovementTruck {
   batch: number
   truckType: TruckType
   status: TruckStatus
+  doorStatus: DoorStatus
   ignored: boolean
   trailerNumber?: string
   lastUpdated: number
@@ -64,6 +66,7 @@ interface VanSemiNumber {
 const loadingDoors = ['13A', '13B', '14A', '14B', '15A', '15B']
 const stagingDoors = Array.from({ length: 11 }, (_, i) => (18 + i).toString())
 const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledonia', '5-Chippewa Falls']
+const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Semi Trailer', 'Semi']
 const doorStatusOptions: DoorStatus[] = ['Loading', 'EOT', 'EOT+1', 'Change Truck/Trailer', 'Waiting', 'Done For Night']
 const truckStatuses: TruckStatus[] = ['On Route', 'In Door', 'Put Away', 'In Front', 'Ready', 'In Back', 'The Rock', 'Yard', 'Missing', 'Doors 8-11', 'Doors 12A-15B', 'End', 'Gap', 'Transfer']
 
@@ -115,13 +118,18 @@ export default function TruckManagementSystem() {
   const [printRoomTrucks, setPrintRoomTrucks] = useState<PrintRoomTruck[]>([])
   const [preShiftTrucks, setPreShiftTrucks] = useState<PreShiftTruck[]>([])
   const [movementTrucks, setMovementTrucks] = useState<Record<string, MovementTruck>>({})
-  const [doorStatuses, setDoorStatuses] = useState<Record<string, DoorStatus>>({})
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [vanSemiNumbers, setVanSemiNumbers] = useState<VanSemiNumber[]>([])
   const [editingTruck, setEditingTruck] = useState<string | null>(null)
+  const [editingPreShiftTruck, setEditingPreShiftTruck] = useState<string | null>(null)
   const [editingDriver, setEditingDriver] = useState<string | null>(null)
   const [newDriverForm, setNewDriverForm] = useState(false)
   const [newVanSemiForm, setNewVanSemiForm] = useState(false)
+  const [newVanSemiNumber, setNewVanSemiNumber] = useState('')
+  const [newVanSemiType, setNewVanSemiType] = useState<'Van' | 'Semi'>('Van')
+  const [filterRoute, setFilterRoute] = useState<Route | 'all'>('all')
+  const [filterStatus, setFilterStatus] = useState<TruckStatus | 'all'>('all')
+  const [searchTerm, setSearchTerm] = useState('')
   const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('syncing')
   const [lastSync, setLastSync] = useState<number>(Date.now())
   const [isLoaded, setIsLoaded] = useState(false)
@@ -137,7 +145,6 @@ export default function TruckManagementSystem() {
       setPrintRoomTrucks(data.printRoomTrucks || [])
       setPreShiftTrucks(data.preShiftTrucks || [])
       setMovementTrucks(data.movementTrucks || {})
-      setDoorStatuses(data.doorStatuses || {})
       setDrivers(data.drivers || [])
       setVanSemiNumbers(data.vanSemiNumbers || [])
       setLastSync(data.lastSync || Date.now())
@@ -148,11 +155,6 @@ export default function TruckManagementSystem() {
       setSyncStatus('error')
       
       if (!isLoaded) {
-        const initialStatuses: Record<string, DoorStatus> = {}
-        loadingDoors.forEach(door => {
-          initialStatuses[door] = 'Loading'
-        })
-        setDoorStatuses(initialStatuses)
         setIsLoaded(true)
       }
     }
@@ -172,7 +174,6 @@ export default function TruckManagementSystem() {
           printRoomTrucks,
           preShiftTrucks,
           movementTrucks,
-          doorStatuses,
           drivers,
           vanSemiNumbers
         })
@@ -203,7 +204,7 @@ export default function TruckManagementSystem() {
     }, 1000)
     
     return () => clearTimeout(timeoutId)
-  }, [printRoomTrucks, preShiftTrucks, movementTrucks, doorStatuses, drivers, vanSemiNumbers, isLoaded])
+  }, [printRoomTrucks, preShiftTrucks, movementTrucks, drivers, vanSemiNumbers, isLoaded])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -230,8 +231,9 @@ export default function TruckManagementSystem() {
         pallets: printTruck.pallets,
         notes: printTruck.notes,
         batch: printTruck.batch,
-        truckType: determineTruckType(baseTruckNumber),
+        truckType: preShiftTruck?.truckType || determineTruckType(baseTruckNumber),
         status: existingMovement?.status || (preShiftTruck ? 'Ready' : 'Missing'),
+        doorStatus: existingMovement?.doorStatus || 'Loading',
         ignored: existingMovement?.ignored || false,
         trailerNumber: trailerNumber,
         lastUpdated: Date.now()
@@ -289,10 +291,11 @@ export default function TruckManagementSystem() {
       truckNumber: '',
       stagingDoor: door,
       stagingPosition: position,
+      truckType: 'Van',
       lastUpdated: Date.now()
     }
     setPreShiftTrucks([...preShiftTrucks, newTruck])
-    return newTruck.id
+    setEditingPreShiftTruck(newTruck.id)
   }
 
   const updatePreShiftTruck = (id: string, updates: Partial<PreShiftTruck>) => {
@@ -303,6 +306,7 @@ export default function TruckManagementSystem() {
 
   const deletePreShiftTruck = (id: string) => {
     setPreShiftTrucks(preShiftTrucks.filter(t => t.id !== id))
+    if (editingPreShiftTruck === id) setEditingPreShiftTruck(null)
   }
 
   const updateMovementTruck = (truckNumber: string, updates: Partial<MovementTruck>) => {
@@ -313,13 +317,6 @@ export default function TruckManagementSystem() {
         ...updates,
         lastUpdated: Date.now()
       }
-    }))
-  }
-
-  const updateDoorStatus = (door: string, status: DoorStatus) => {
-    setDoorStatuses(prev => ({
-      ...prev,
-      [door]: status
     }))
   }
 
@@ -348,15 +345,19 @@ export default function TruckManagementSystem() {
 
   const deleteDriver = (id: string) => {
     setDrivers(drivers.filter(d => d.id !== id))
+    if (editingDriver === id) setEditingDriver(null)
   }
 
-  const addVanSemiNumber = (number: string, type: 'Van' | 'Semi') => {
+  const addVanSemiNumber = () => {
+    if (!newVanSemiNumber.trim()) return
     const newVanSemi: VanSemiNumber = {
       id: Date.now().toString(),
-      number,
-      type
+      number: newVanSemiNumber.trim(),
+      type: newVanSemiType
     }
     setVanSemiNumbers([...vanSemiNumbers, newVanSemi])
+    setNewVanSemiNumber('')
+    setNewVanSemiForm(false)
   }
 
   const deleteVanSemiNumber = (id: string) => {
@@ -381,6 +382,15 @@ export default function TruckManagementSystem() {
     return stats
   }
 
+  const getFilteredMovementTrucks = () => {
+    return Object.values(movementTrucks).filter(truck => {
+      if (filterRoute !== 'all' && truck.route !== filterRoute) return false
+      if (filterStatus !== 'all' && truck.status !== filterStatus) return false
+      if (searchTerm && !truck.truckNumber.toLowerCase().includes(searchTerm.toLowerCase())) return false
+      return true
+    })
+  }
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', color: '#111827' }}>
       <div style={{ 
@@ -397,7 +407,7 @@ export default function TruckManagementSystem() {
               <Truck style={{ width: '2rem', height: '2rem', color: '#2563eb' }} />
               <div>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Truck Management System</h1>
-                <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: 0 }}>Real-time sync with Vercel Blob (500MB free)</p>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: 0 }}>Real-time synchronized warehouse operations</p>
               </div>
             </div>
             <div style={{
@@ -424,23 +434,31 @@ export default function TruckManagementSystem() {
       <div style={{ backgroundColor: 'white', borderBottom: '1px solid #e5e7eb' }}>
         <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1rem' }}>
           <div style={{ display: 'flex', gap: '0.25rem' }}>
-            {(['print', 'preshift', 'movement'] as const).map(tab => (
+            {[
+              { key: 'print', label: 'Print Room', icon: Menu },
+              { key: 'preshift', label: 'PreShift Setup', icon: Users },
+              { key: 'movement', label: 'Live Movement', icon: Activity }
+            ].map(({ key, label, icon: Icon }) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+                key={key}
+                onClick={() => setActiveTab(key as any)}
                 style={{
                   padding: '0.75rem 1.5rem',
                   fontWeight: '500',
-                  color: activeTab === tab ? '#2563eb' : '#6b7280',
-                  borderBottom: activeTab === tab ? '2px solid #2563eb' : 'none',
+                  color: activeTab === key ? '#2563eb' : '#6b7280',
+                  borderBottom: activeTab === key ? '2px solid #2563eb' : 'none',
                   backgroundColor: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
                   transition: 'color 0.2s',
-                  fontSize: '1rem'
+                  fontSize: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
                 }}
               >
-                {tab === 'print' ? 'Print Room' : tab === 'preshift' ? 'PreShift Setup' : 'Live Movement'}
+                <Icon style={{ width: '1rem', height: '1rem' }} />
+                {label}
               </button>
             ))}
           </div>
@@ -452,7 +470,7 @@ export default function TruckManagementSystem() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Shift Summary</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
                 {routes.map(route => {
                   const stats = getRouteStats()
                   return (
@@ -470,6 +488,20 @@ export default function TruckManagementSystem() {
                     </div>
                   )
                 })}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginTop: '1rem' }}>
+                <div style={{ backgroundColor: '#dbeafe', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e40af' }}>
+                    {printRoomTrucks.reduce((sum, t) => sum + t.pods, 0)}
+                  </div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#1e40af' }}>Total Pods</div>
+                </div>
+                <div style={{ backgroundColor: '#dcfce7', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#15803d' }}>
+                    {printRoomTrucks.reduce((sum, t) => sum + t.pallets, 0)}
+                  </div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#15803d' }}>Total Pallets</div>
+                </div>
               </div>
             </div>
 
@@ -502,7 +534,7 @@ export default function TruckManagementSystem() {
                     <div key={truck.id} style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem' }}>
                       {editingTruck === truck.id ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                             <div>
                               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Truck Number</label>
                               <input
@@ -657,7 +689,7 @@ export default function TruckManagementSystem() {
                         </div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                             <div style={{
                               backgroundColor: getRouteColor(truck.route),
                               color: 'white',
@@ -671,6 +703,7 @@ export default function TruckManagementSystem() {
                             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{truck.route}</div>
                             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Pods: {truck.pods}</div>
                             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Pallets: {truck.pallets}</div>
+                            {truck.notes && <div style={{ fontSize: '0.875rem', color: '#6b7280', fontStyle: 'italic' }}>"{truck.notes}"</div>}
                           </div>
                           <button
                             onClick={() => setEditingTruck(truck.id)}
@@ -696,18 +729,742 @@ export default function TruckManagementSystem() {
         )}
 
         {activeTab === 'preshift' && (
-          <div style={{ padding: '1rem', backgroundColor: '#fef3c7', borderRadius: '0.5rem', border: '1px solid #fbbf24' }}>
-            <p style={{ margin: 0, color: '#92400e', fontWeight: '500' }}>
-              PreShift and Movement tabs coming soon. Print Room is fully functional with real-time multi-device sync via Vercel Blob.
-            </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Driver & Equipment Database</h2>
+                <button
+                  onClick={() => setNewDriverForm(true)}
+                  style={{
+                    backgroundColor: '#2563eb',
+                    color: 'white',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.375rem',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.875rem',
+                    fontWeight: '500'
+                  }}
+                >
+                  <Plus style={{ width: '1rem', height: '1rem' }} />
+                  Add Driver
+                </button>
+              </div>
+              {newDriverForm && (
+                <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f3f4f6', borderRadius: '0.375rem' }}>
+                  <button
+                    onClick={addDriver}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#2563eb',
+                      color: 'white',
+                      padding: '0.75rem',
+                      borderRadius: '0.375rem',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Create New Driver Profile
+                  </button>
+                </div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {drivers.map(driver => (
+                  <div key={driver.id} style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem' }}>
+                    {editingDriver === driver.id ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Full Name</label>
+                            <input
+                              type="text"
+                              value={driver.name}
+                              onChange={(e) => updateDriver(driver.id, { name: e.target.value })}
+                              placeholder="John Doe"
+                              style={{
+                                width: '100%',
+                                padding: '0.5rem',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '0.375rem',
+                                fontSize: '0.875rem',
+                                color: '#111827',
+                                backgroundColor: 'white'
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Phone</label>
+                            <input
+                              type="text"
+                              value={driver.phone}
+                              onChange={(e) => updateDriver(driver.id, { phone: e.target.value })}
+                              placeholder="(555) 555-5555"
+                              style={{
+                                width: '100%',
+                                padding: '0.5rem',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '0.375rem',
+                                fontSize: '0.875rem',
+                                color: '#111827',
+                                backgroundColor: 'white'
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Tractor #</label>
+                            <input
+                              type="text"
+                              value={driver.tractorNumber}
+                              onChange={(e) => updateDriver(driver.id, { tractorNumber: e.target.value })}
+                              placeholder="T-123"
+                              style={{
+                                width: '100%',
+                                padding: '0.5rem',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '0.375rem',
+                                fontSize: '0.875rem',
+                                color: '#111827',
+                                backgroundColor: 'white'
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 1</label>
+                            <input
+                              type="text"
+                              value={driver.trailer1}
+                              onChange={(e) => updateDriver(driver.id, { trailer1: e.target.value })}
+                              placeholder="TR-001"
+                              style={{
+                                width: '100%',
+                                padding: '0.5rem',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '0.375rem',
+                                fontSize: '0.875rem',
+                                color: '#111827',
+                                backgroundColor: 'white'
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 2</label>
+                            <input
+                              type="text"
+                              value={driver.trailer2}
+                              onChange={(e) => updateDriver(driver.id, { trailer2: e.target.value })}
+                              placeholder="TR-002"
+                              style={{
+                                width: '100%',
+                                padding: '0.5rem',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '0.375rem',
+                                fontSize: '0.875rem',
+                                color: '#111827',
+                                backgroundColor: 'white'
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Trailer 3</label>
+                            <input
+                              type="text"
+                              value={driver.trailer3}
+                              onChange={(e) => updateDriver(driver.id, { trailer3: e.target.value })}
+                              placeholder="TR-003"
+                              style={{
+                                width: '100%',
+                                padding: '0.5rem',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '0.375rem',
+                                fontSize: '0.875rem',
+                                color: '#111827',
+                                backgroundColor: 'white'
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Notes</label>
+                          <textarea
+                            value={driver.notes}
+                            onChange={(e) => updateDriver(driver.id, { notes: e.target.value })}
+                            rows={2}
+                            placeholder="Availability, time off, special circumstances..."
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '0.375rem',
+                              fontSize: '0.875rem',
+                              resize: 'vertical',
+                              color: '#111827',
+                              backgroundColor: 'white'
+                            }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            onClick={() => setEditingDriver(null)}
+                            style={{
+                              backgroundColor: '#2563eb',
+                              color: 'white',
+                              padding: '0.5rem 1rem',
+                              borderRadius: '0.375rem',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem',
+                              fontSize: '0.875rem'
+                            }}
+                          >
+                            <Save style={{ width: '1rem', height: '1rem' }} />
+                            Save
+                          </button>
+                          <button
+                            onClick={() => updateDriver(driver.id, { active: !driver.active })}
+                            style={{
+                              backgroundColor: driver.active ? '#6b7280' : '#16a34a',
+                              color: 'white',
+                              padding: '0.5rem 1rem',
+                              borderRadius: '0.375rem',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontSize: '0.875rem'
+                            }}
+                          >
+                            {driver.active ? 'Set Inactive' : 'Set Active'}
+                          </button>
+                          <button
+                            onClick={() => deleteDriver(driver.id)}
+                            style={{
+                              backgroundColor: '#dc2626',
+                              color: 'white',
+                              padding: '0.5rem 1rem',
+                              borderRadius: '0.375rem',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem',
+                              fontSize: '0.875rem'
+                            }}
+                          >
+                            <Trash style={{ width: '1rem', height: '1rem' }} />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                          <div style={{
+                            backgroundColor: driver.active ? '#16a34a' : '#6b7280',
+                            color: 'white',
+                            borderRadius: '0.25rem',
+                            padding: '0.25rem 0.75rem',
+                            fontWeight: 'bold'
+                          }}>
+                            {driver.name || 'New Driver'}
+                          </div>
+                          <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{driver.phone}</div>
+                          <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Tractor: {driver.tractorNumber}</div>
+                          <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                            Trailers: {[driver.trailer1, driver.trailer2, driver.trailer3].filter(Boolean).join(', ') || 'None'}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setEditingDriver(driver.id)}
+                          style={{
+                            backgroundColor: 'transparent',
+                            border: '1px solid #d1d5db',
+                            padding: '0.5rem',
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer',
+                            color: '#6b7280'
+                          }}
+                        >
+                          <Edit style={{ width: '1rem', height: '1rem' }} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Van/Semi Number Classification</h2>
+                <button
+                  onClick={() => setNewVanSemiForm(true)}
+                  style={{
+                    backgroundColor: '#2563eb',
+                    color: 'white',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.375rem',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.875rem',
+                    fontWeight: '500'
+                  }}
+                >
+                  <Plus style={{ width: '1rem', height: '1rem' }} />
+                  Add Number
+                </button>
+              </div>
+              {newVanSemiForm && (
+                <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f3f4f6', borderRadius: '0.375rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '0.5rem', alignItems: 'end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Truck Number</label>
+                      <input
+                        type="text"
+                        value={newVanSemiNumber}
+                        onChange={(e) => setNewVanSemiNumber(e.target.value)}
+                        placeholder="151"
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '0.375rem',
+                          fontSize: '0.875rem',
+                          color: '#111827',
+                          backgroundColor: 'white'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Type</label>
+                      <select
+                        value={newVanSemiType}
+                        onChange={(e) => setNewVanSemiType(e.target.value as 'Van' | 'Semi')}
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '0.375rem',
+                          fontSize: '0.875rem',
+                          color: '#111827',
+                          backgroundColor: 'white'
+                        }}
+                      >
+                        <option value="Van">Van</option>
+                        <option value="Semi">Semi</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={addVanSemiNumber}
+                      style={{
+                        backgroundColor: '#2563eb',
+                        color: 'white',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '0.375rem',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: '500'
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                {vanSemiNumbers.map(vs => (
+                  <div key={vs.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.5rem',
+                    backgroundColor: vs.type === 'Van' ? '#dbeafe' : '#fef3c7',
+                    borderRadius: '0.375rem'
+                  }}>
+                    <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>{vs.number} ({vs.type})</span>
+                    <button
+                      onClick={() => deleteVanSemiNumber(vs.id)}
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#6b7280',
+                        padding: '0.25rem'
+                      }}
+                    >
+                      <X style={{ width: '0.875rem', height: '0.875rem' }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Staging Doors (18-28)</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+                {stagingDoors.map(door => {
+                  const doorTrucks = preShiftTrucks
+                    .filter(t => t.stagingDoor === door)
+                    .sort((a, b) => a.stagingPosition - b.stagingPosition)
+                  
+                  return (
+                    <div key={door} style={{ border: '2px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem' }}>
+                      <div style={{ textAlign: 'center', fontWeight: 'bold', marginBottom: '0.75rem', fontSize: '1.125rem', color: '#111827' }}>
+                        Door {door}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {[1, 2, 3, 4].map(position => {
+                          const truck = doorTrucks.find(t => t.stagingPosition === position)
+                          return (
+                            <div key={position} style={{ border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.5rem' }}>
+                              <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+                                Position {position} {position === 1 ? '(Front)' : position === 4 ? '(Back)' : ''}
+                              </div>
+                              {truck ? (
+                                editingPreShiftTruck === truck.id ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <input
+                                      type="text"
+                                      value={truck.truckNumber}
+                                      onChange={(e) => updatePreShiftTruck(truck.id, { truckNumber: e.target.value })}
+                                      placeholder="Truck #"
+                                      style={{
+                                        width: '100%',
+                                        padding: '0.375rem',
+                                        border: '1px solid #d1d5db',
+                                        borderRadius: '0.25rem',
+                                        fontSize: '0.75rem',
+                                        color: '#111827',
+                                        backgroundColor: 'white'
+                                      }}
+                                    />
+                                    <select
+                                      value={truck.truckType}
+                                      onChange={(e) => updatePreShiftTruck(truck.id, { truckType: e.target.value as TruckType })}
+                                      style={{
+                                        width: '100%',
+                                        padding: '0.375rem',
+                                        border: '1px solid #d1d5db',
+                                        borderRadius: '0.25rem',
+                                        fontSize: '0.75rem',
+                                        color: '#111827',
+                                        backgroundColor: 'white'
+                                      }}
+                                    >
+                                      {truckTypes.map(type => (
+                                        <option key={type} value={type}>{type}</option>
+                                      ))}
+                                    </select>
+                                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                      <button
+                                        onClick={() => setEditingPreShiftTruck(null)}
+                                        style={{
+                                          flex: 1,
+                                          backgroundColor: '#2563eb',
+                                          color: 'white',
+                                          padding: '0.25rem',
+                                          borderRadius: '0.25rem',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          fontSize: '0.75rem'
+                                        }}
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => deletePreShiftTruck(truck.id)}
+                                        style={{
+                                          backgroundColor: '#dc2626',
+                                          color: 'white',
+                                          padding: '0.25rem 0.5rem',
+                                          borderRadius: '0.25rem',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          fontSize: '0.75rem'
+                                        }}
+                                      >
+                                        <Trash style={{ width: '0.75rem', height: '0.75rem' }} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div>
+                                      <div style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#111827' }}>
+                                        {truck.truckNumber}
+                                      </div>
+                                      <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                        {truck.truckType}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => setEditingPreShiftTruck(truck.id)}
+                                      style={{
+                                        backgroundColor: 'transparent',
+                                        border: '1px solid #d1d5db',
+                                        padding: '0.25rem',
+                                        borderRadius: '0.25rem',
+                                        cursor: 'pointer',
+                                        color: '#6b7280'
+                                      }}
+                                    >
+                                      <Edit style={{ width: '0.75rem', height: '0.75rem' }} />
+                                    </button>
+                                  </div>
+                                )
+                              ) : (
+                                <button
+                                  onClick={() => addPreShiftTruck(door, position)}
+                                  style={{
+                                    width: '100%',
+                                    backgroundColor: '#f3f4f6',
+                                    color: '#6b7280',
+                                    padding: '0.5rem',
+                                    borderRadius: '0.25rem',
+                                    border: '1px dashed #d1d5db',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem'
+                                  }}
+                                >
+                                  + Add Truck
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>PreShift Status Summary</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                <div style={{ backgroundColor: '#dbeafe', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e40af' }}>{printRoomTrucks.length}</div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#1e40af' }}>Total Trucks</div>
+                </div>
+                <div style={{ backgroundColor: '#dcfce7', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#15803d' }}>{preShiftTrucks.length}</div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#15803d' }}>Staged Trucks</div>
+                </div>
+                <div style={{ backgroundColor: '#fae8ff', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#7e22ce' }}>{drivers.filter(d => d.active).length}</div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#7e22ce' }}>Active Drivers</div>
+                </div>
+                <div style={{ backgroundColor: '#fed7aa', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#c2410c' }}>
+                    {drivers.reduce((sum, d) => sum + [d.trailer1, d.trailer2, d.trailer3].filter(Boolean).length, 0)}
+                  </div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#c2410c' }}>Total Trailers</div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
         {activeTab === 'movement' && (
-          <div style={{ padding: '1rem', backgroundColor: '#fef3c7', borderRadius: '0.5rem', border: '1px solid #fbbf24' }}>
-            <p style={{ margin: 0, color: '#92400e', fontWeight: '500' }}>
-              PreShift and Movement tabs coming soon. Print Room is fully functional with real-time multi-device sync via Vercel Blob.
-            </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Filters & Search</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Search Truck</label>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search truck number..."
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.875rem',
+                      color: '#111827',
+                      backgroundColor: 'white'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Filter by Route</label>
+                  <select
+                    value={filterRoute}
+                    onChange={(e) => setFilterRoute(e.target.value as Route | 'all')}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.875rem',
+                      color: '#111827',
+                      backgroundColor: 'white'
+                    }}
+                  >
+                    <option value="all">All Routes</option>
+                    {routes.map(route => (
+                      <option key={route} value={route}>{route}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Filter by Status</label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as TruckStatus | 'all')}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.875rem',
+                      color: '#111827',
+                      backgroundColor: 'white'
+                    }}
+                  >
+                    <option value="all">All Statuses</option>
+                    {truckStatuses.map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>
+                Live Truck Movement Dashboard ({getFilteredMovementTrucks().length} trucks)
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {getFilteredMovementTrucks().map(truck => (
+                  <div key={truck.truckNumber} style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <div style={{
+                          backgroundColor: getRouteColor(truck.route),
+                          color: 'white',
+                          borderRadius: '0.25rem',
+                          padding: '0.5rem 1rem',
+                          fontWeight: 'bold',
+                          fontSize: '1.125rem'
+                        }}>
+                          {truck.truckNumber}
+                        </div>
+                        <div style={{
+                          backgroundColor: getTruckStatusColor(truck.status),
+                          color: 'white',
+                          borderRadius: '0.25rem',
+                          padding: '0.25rem 0.75rem',
+                          fontSize: '0.875rem',
+                          fontWeight: '500'
+                        }}>
+                          {truck.status}
+                        </div>
+                        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Door {truck.door}</div>
+                        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{truck.truckType}</div>
+                        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Batch {truck.batch}</div>
+                      </div>
+                      <button
+                        onClick={() => updateMovementTruck(truck.truckNumber, { ignored: !truck.ignored })}
+                        style={{
+                          backgroundColor: truck.ignored ? '#2563eb' : 'transparent',
+                          color: truck.ignored ? 'white' : '#6b7280',
+                          border: '1px solid #d1d5db',
+                          padding: '0.5rem 1rem',
+                          borderRadius: '0.375rem',
+                          cursor: 'pointer',
+                          fontSize: '0.875rem',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {truck.ignored ? 'Unignore' : 'Ignore'}
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Truck Status</label>
+                        <select
+                          value={truck.status}
+                          onChange={(e) => updateMovementTruck(truck.truckNumber, { status: e.target.value as TruckStatus })}
+                          style={{
+                            width: '100%',
+                            padding: '0.5rem',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '0.375rem',
+                            fontSize: '0.875rem',
+                            color: '#111827',
+                            backgroundColor: 'white'
+                          }}
+                        >
+                          {truckStatuses.map(status => (
+                            <option key={status} value={status}>{status}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem', color: '#374151' }}>Door Status</label>
+                        <select
+                          value={truck.doorStatus}
+                          onChange={(e) => updateMovementTruck(truck.truckNumber, { doorStatus: e.target.value as DoorStatus })}
+                          style={{
+                            width: '100%',
+                            padding: '0.5rem',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '0.375rem',
+                            fontSize: '0.875rem',
+                            color: '#111827',
+                            backgroundColor: 'white'
+                          }}
+                        >
+                          {doorStatusOptions.map(status => (
+                            <option key={status} value={status}>{status}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
+                      <div style={{ backgroundColor: '#dbeafe', borderRadius: '0.375rem', padding: '0.75rem', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#1e40af', marginBottom: '0.25rem' }}>Pods</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e40af' }}>{truck.pods}</div>
+                      </div>
+                      <div style={{ backgroundColor: '#dcfce7', borderRadius: '0.375rem', padding: '0.75rem', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#15803d', marginBottom: '0.25rem' }}>Pallets</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#15803d' }}>{truck.pallets}</div>
+                      </div>
+                      <div style={{ backgroundColor: '#fae8ff', borderRadius: '0.375rem', padding: '0.75rem', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#7e22ce', marginBottom: '0.25rem' }}>Route</div>
+                        <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#7e22ce' }}>{truck.route.split('-')[0]}</div>
+                      </div>
+                    </div>
+
+                    {truck.notes && (
+                      <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.375rem', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Notes:</div>
+                        <div style={{ fontSize: '0.875rem', color: '#111827' }}>{truck.notes}</div>
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                      Last updated: {new Date(truck.lastUpdated).toLocaleTimeString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
