@@ -13,11 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Truck, Plus, Trash, Edit, Save, Menu, Home, X, Users, Activity } from 'lucide-react'
+import { Truck, Plus, Trash, Edit, Save, Menu, Home, X, Users, Activity, Shield } from 'lucide-react'
 import Link from 'next/link'
 
 type Route = '1-Fond Du Lac' | '2-Green Bay' | '3-Wausau' | '4-Caledonia' | '5-Chippewa Falls'
-type TruckType = 'Van' | 'Box Truck' | 'Semi Trailer' | 'Semi'
+type TruckType = 'Van' | 'Box Truck' | 'Tandem'
 
 interface TruckData {
   id: string
@@ -29,11 +29,12 @@ interface TruckData {
   notes: string
   batch: number
   truckType: TruckType
+  stagingDoor?: string
+  stagingPosition?: number
 }
 
 const loadingDoors = ['13A', '13B', '14A', '14B', '15A', '15B']
 const routes: Route[] = ['1-Fond Du Lac', '2-Green Bay', '3-Wausau', '4-Caledonia', '5-Chippewa Falls']
-const truckTypes: TruckType[] = ['Van', 'Box Truck', 'Semi Trailer', 'Semi']
 
 const routeColors: Record<Route, string> = {
   '1-Fond Du Lac': 'bg-blue-500',
@@ -47,21 +48,22 @@ export default function PrintRoomPage() {
   const [trucks, setTrucks] = useState<TruckData[]>([])
   const [editingTruck, setEditingTruck] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('connected')
+  const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('syncing')
 
-  // Load data from database
   useEffect(() => {
-    loadTrucks()
+    loadData()
   }, [])
 
-  // Save to database whenever trucks change
   useEffect(() => {
     if (trucks.length > 0) {
-      saveTrucks()
+      const timeoutId = setTimeout(() => {
+        saveData()
+      }, 1000)
+      return () => clearTimeout(timeoutId)
     }
   }, [trucks])
 
-  const loadTrucks = async () => {
+  const loadData = async () => {
     try {
       setSyncStatus('syncing')
       const response = await fetch('/api/trucks')
@@ -73,12 +75,12 @@ export default function PrintRoomPage() {
         setSyncStatus('error')
       }
     } catch (error) {
-      console.error('Error loading trucks:', error)
+      console.error('Error loading data:', error)
       setSyncStatus('error')
     }
   }
 
-  const saveTrucks = async () => {
+  const saveData = async () => {
     try {
       setSyncStatus('syncing')
       const response = await fetch('/api/trucks', {
@@ -86,13 +88,17 @@ export default function PrintRoomPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trucks })
       })
-      if (response.ok) {
+      
+      const result = await response.json()
+      
+      if (response.ok && result.success) {
         setSyncStatus('connected')
       } else {
         setSyncStatus('error')
+        console.error('Save failed:', result.error)
       }
     } catch (error) {
-      console.error('Error saving trucks:', error)
+      console.error('Error saving data:', error)
       setSyncStatus('error')
     }
   }
@@ -118,11 +124,14 @@ export default function PrintRoomPage() {
   }
 
   const deleteTruck = (id: string) => {
-    setTrucks(trucks.filter(t => t.id !== id))
+    if (confirm('Are you sure you want to delete this truck?')) {
+      setTrucks(trucks.filter(t => t.id !== id))
+      setEditingTruck(null)
+    }
   }
 
   const getTrucksByBatch = (batch: number) => {
-    return trucks.filter(t => t.batch === batch)
+    return trucks.filter(t => t.batch === batch && !t.stagingDoor)
   }
 
   const getRouteStats = () => {
@@ -133,13 +142,15 @@ export default function PrintRoomPage() {
       '4-Caledonia': 0,
       '5-Chippewa Falls': 0
     }
-    trucks.forEach(truck => stats[truck.route]++)
+    trucks.forEach(truck => {
+      if (!truck.stagingDoor) stats[truck.route]++
+    })
     return stats
   }
 
   const routeStats = getRouteStats()
-  const totalPods = trucks.reduce((sum, t) => sum + t.pods, 0)
-  const totalPallets = trucks.reduce((sum, t) => sum + t.pallets, 0)
+  const totalPods = trucks.filter(t => !t.stagingDoor).reduce((sum, t) => sum + t.pods, 0)
+  const totalPallets = trucks.filter(t => !t.stagingDoor).reduce((sum, t) => sum + t.pallets, 0)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -216,6 +227,12 @@ export default function PrintRoomPage() {
                     <span className="text-gray-700 font-medium">Live Movement</span>
                   </div>
                 </Link>
+                <Link href="/admin" onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    <Shield className="w-5 h-5 text-gray-600" />
+                    <span className="text-gray-700 font-medium">Admin Settings</span>
+                  </div>
+                </Link>
               </nav>
             </div>
           </div>
@@ -235,7 +252,7 @@ export default function PrintRoomPage() {
                   <div className={`${routeColors[route]} text-white rounded-lg p-3 mb-2`}>
                     <div className="text-2xl font-bold">{routeStats[route]}</div>
                   </div>
-                  <div className="text-sm font-medium text-gray-700">{route}</div>
+                  <div className="text-sm font-medium text-gray-900">{route}</div>
                 </div>
               ))}
             </div>
@@ -260,7 +277,7 @@ export default function PrintRoomPage() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {loadingDoors.map(door => {
-                const doorTrucks = trucks.filter(t => t.door === door)
+                const doorTrucks = trucks.filter(t => t.door === door && !t.stagingDoor)
                 return (
                   <div key={door} className="border-2 border-gray-300 rounded-lg p-4 bg-white">
                     <div className="text-center font-bold mb-2 text-lg text-gray-900">Door {door}</div>
@@ -268,7 +285,7 @@ export default function PrintRoomPage() {
                       <Button 
                         onClick={() => addTruck(door)}
                         variant="outline"
-                        className="w-full bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+                        className="w-full text-gray-900 border-gray-300 hover:bg-gray-100"
                       >
                         <Plus className="w-4 h-4 mr-2" />
                         Add Truck
@@ -297,7 +314,6 @@ export default function PrintRoomPage() {
                 <CardTitle className="text-gray-900">Batch {batch}</CardTitle>
                 <Button 
                   onClick={() => addTruck(loadingDoors[0], batch)} 
-                  size="sm"
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -313,7 +329,7 @@ export default function PrintRoomPage() {
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
-                            <Label className="text-gray-700">Truck Number</Label>
+                            <Label className="text-gray-900">Truck Number</Label>
                             <Input
                               value={truck.truckNumber}
                               onChange={(e) => updateTruck(truck.id, { truckNumber: e.target.value })}
@@ -322,63 +338,75 @@ export default function PrintRoomPage() {
                             />
                           </div>
                           <div>
-                            <Label className="text-gray-700">Door</Label>
+                            <Label className="text-gray-900">Door</Label>
                             <Select
                               value={truck.door}
                               onValueChange={(value) => updateTruck(truck.id, { door: value })}
                             >
                               <SelectTrigger className="bg-white text-gray-900 border-gray-300">
-                                <SelectValue />
+                                <SelectValue className="text-gray-900" />
                               </SelectTrigger>
-                              <SelectContent className="bg-white">
+                              <SelectContent className="bg-white border-gray-300">
                                 {loadingDoors.map(door => (
-                                  <SelectItem key={door} value={door}>{door}</SelectItem>
+                                  <SelectItem 
+                                    key={door} 
+                                    value={door}
+                                    className="text-gray-900 hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                                  >
+                                    {door}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           </div>
                           <div>
-                            <Label className="text-gray-700">Route</Label>
+                            <Label className="text-gray-900">Route</Label>
                             <Select
                               value={truck.route}
                               onValueChange={(value: Route) => updateTruck(truck.id, { route: value })}
                             >
                               <SelectTrigger className="bg-white text-gray-900 border-gray-300">
-                                <SelectValue />
+                                <SelectValue className="text-gray-900" />
                               </SelectTrigger>
-                              <SelectContent className="bg-white">
+                              <SelectContent className="bg-white border-gray-300">
                                 {routes.map(route => (
-                                  <SelectItem key={route} value={route}>{route}</SelectItem>
+                                  <SelectItem 
+                                    key={route} 
+                                    value={route}
+                                    className="text-gray-900 hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                                  >
+                                    {route}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           </div>
                           <div>
-                            <Label className="text-gray-700">Truck Type</Label>
+                            <Label className="text-gray-900">Truck Type</Label>
                             <Select
                               value={truck.truckType}
                               onValueChange={(value: TruckType) => updateTruck(truck.id, { truckType: value })}
                             >
                               <SelectTrigger className="bg-white text-gray-900 border-gray-300">
-                                <SelectValue />
+                                <SelectValue className="text-gray-900" />
                               </SelectTrigger>
-                              <SelectContent className="bg-white">
-                                {truckTypes.map(type => (
-                                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                                ))}
+                              <SelectContent className="bg-white border-gray-300">
+                                <SelectItem value="Van" className="text-gray-900 hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">Van</SelectItem>
+                                <SelectItem value="Box Truck" className="text-gray-900 hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">Box Truck</SelectItem>
+                                <SelectItem value="Tandem" className="text-gray-900 hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">Tandem</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label className="text-gray-700">Pods</Label>
+                            <Label className="text-gray-900">Pods</Label>
                             <div className="flex gap-2">
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pods: Math.max(0, truck.pods - 1) })}
-                                className="bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+                                className="text-gray-900 border-gray-300 hover:bg-gray-100"
                               >
                                 -
                               </Button>
@@ -392,20 +420,20 @@ export default function PrintRoomPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pods: truck.pods + 1 })}
-                                className="bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+                                className="text-gray-900 border-gray-300 hover:bg-gray-100"
                               >
                                 +
                               </Button>
                             </div>
                           </div>
                           <div>
-                            <Label className="text-gray-700">Pallets/Trays</Label>
+                            <Label className="text-gray-900">Pallets/Trays</Label>
                             <div className="flex gap-2">
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pallets: Math.max(0, truck.pallets - 1) })}
-                                className="bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+                                className="text-gray-900 border-gray-300 hover:bg-gray-100"
                               >
                                 -
                               </Button>
@@ -419,7 +447,7 @@ export default function PrintRoomPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateTruck(truck.id, { pallets: truck.pallets + 1 })}
-                                className="bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+                                className="text-gray-900 border-gray-300 hover:bg-gray-100"
                               >
                                 +
                               </Button>
@@ -427,7 +455,7 @@ export default function PrintRoomPage() {
                           </div>
                         </div>
                         <div>
-                          <Label className="text-gray-700">Notes</Label>
+                          <Label className="text-gray-900">Notes</Label>
                           <Textarea
                             value={truck.notes}
                             onChange={(e) => updateTruck(truck.id, { notes: e.target.value })}
@@ -439,7 +467,6 @@ export default function PrintRoomPage() {
                         <div className="flex gap-2">
                           <Button 
                             onClick={() => setEditingTruck(null)} 
-                            size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white"
                           >
                             <Save className="w-4 h-4 mr-2" />
@@ -447,8 +474,6 @@ export default function PrintRoomPage() {
                           </Button>
                           <Button 
                             onClick={() => deleteTruck(truck.id)} 
-                            variant="destructive" 
-                            size="sm"
                             className="bg-red-600 hover:bg-red-700 text-white"
                           >
                             <Trash className="w-4 h-4 mr-2" />
@@ -475,9 +500,7 @@ export default function PrintRoomPage() {
                         </div>
                         <Button 
                           onClick={() => setEditingTruck(truck.id)} 
-                          variant="outline" 
-                          size="sm"
-                          className="bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+                          className="bg-gray-200 hover:bg-gray-300 text-gray-900"
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
