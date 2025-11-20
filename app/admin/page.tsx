@@ -25,6 +25,7 @@ export default function AdminPage() {
   })
   const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('connected')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [saveMessage, setSaveMessage] = useState<string>('')
 
   useEffect(() => {
     loadSettings()
@@ -32,37 +33,48 @@ export default function AdminPage() {
 
   const loadSettings = async () => {
     try {
+      setSyncStatus('syncing')
       const response = await fetch('/api/trucks')
       if (response.ok) {
         const data = await response.json()
         if (data.settings) {
           setSettings(data.settings)
         }
+        setSyncStatus('connected')
+      } else {
+        setSyncStatus('error')
       }
     } catch (error) {
       console.error('Error loading settings:', error)
+      setSyncStatus('error')
     }
   }
 
   const saveSettings = async () => {
     try {
       setSyncStatus('syncing')
+      setSaveMessage('')
+      
       const response = await fetch('/api/trucks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ settings })
       })
-      if (response.ok) {
+      
+      const result = await response.json()
+      
+      if (response.ok && result.success) {
         setSyncStatus('connected')
-        alert('Settings saved successfully!')
+        setSaveMessage('Settings saved successfully!')
+        setTimeout(() => setSaveMessage(''), 3000)
       } else {
         setSyncStatus('error')
-        alert('Failed to save settings')
+        setSaveMessage('Failed to save settings: ' + (result.error || 'Unknown error'))
       }
     } catch (error) {
       console.error('Error saving settings:', error)
       setSyncStatus('error')
-      alert('Failed to save settings')
+      setSaveMessage('Failed to save settings: Network error')
     }
   }
 
@@ -206,6 +218,21 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* Save Message */}
+        {saveMessage && (
+          <div className={`rounded-lg p-4 ${
+            saveMessage.includes('success') 
+              ? 'bg-green-50 border-2 border-green-200' 
+              : 'bg-red-50 border-2 border-red-200'
+          }`}>
+            <p className={`text-sm font-medium ${
+              saveMessage.includes('success') ? 'text-green-800' : 'text-red-800'
+            }`}>
+              {saveMessage}
+            </p>
+          </div>
+        )}
+
         {/* Daily Auto-Reset Settings */}
         <Card className="bg-white">
           <CardHeader>
@@ -283,9 +310,10 @@ export default function AdminPage() {
             <Button 
               onClick={saveSettings}
               className="bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={syncStatus === 'syncing'}
             >
               <Save className="w-4 h-4 mr-2" />
-              Save Auto-Reset Settings
+              {syncStatus === 'syncing' ? 'Saving...' : 'Save Auto-Reset Settings'}
             </Button>
           </CardContent>
         </Card>
